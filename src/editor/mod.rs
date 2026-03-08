@@ -27,6 +27,8 @@ pub(crate) fn init_editor_ui(app: &mut App) {
         .init_resource::<blueprint::WidgetSchemaRegistry>()
         .init_resource::<blueprint::BlueprintRuntimeMap>()
         .init_resource::<crate::inspector::InspectorEditorRegistry>()
+        .init_resource::<inspector::InspectorPanelState>()
+        .init_resource::<inspector::InspectorControlRegistry>()
         .init_resource::<hierarchy::HierarchyState>()
         .init_resource::<hierarchy::HierarchyDragState>()
         .init_resource::<hierarchy::HierarchyTreeCache>()
@@ -88,6 +90,11 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                     inspector::apply_inspector_dropdown_changes,
                     inspector::apply_inspector_checkbox_changes,
                     inspector::refresh_inspector_panel,
+                    inspector::sync_inspector_numeric_controls,
+                    inspector::sync_inspector_dropdown_controls,
+                    inspector::sync_inspector_checkbox_controls,
+                    inspector::sync_inspector_val_controls,
+                    inspector::sync_inspector_vec2_controls,
                 )
                     .chain(),
                 viewport::toggle_preview_mode_with_key,
