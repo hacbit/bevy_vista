@@ -31,7 +31,7 @@ impl Default for Foldout {
 #[derive(Component)]
 struct FoldoutState {
     expanded: bool,
-    content: Entity,
+    content_wrapper: Entity,
     caret: Entity,
 }
 
@@ -115,13 +115,28 @@ impl FoldoutBuilder {
             .entity(content)
             .entry::<Node>()
             .and_modify(move |mut node| {
-                node.display = if foldout.expanded {
-                    Display::Flex
-                } else {
-                    Display::None
-                };
-                node.margin = UiRect::left(Val::Px(12.0));
+                node.width = Val::Percent(100.0);
+                node.min_width = Val::Px(0.0);
             });
+
+        let content_wrapper = commands
+            .spawn((
+                Name::new("Foldout Content Wrapper"),
+                Node {
+                    width: Val::Percent(100.0),
+                    min_width: Val::Px(0.0),
+                    padding: UiRect::left(Val::Px(12.0)),
+                    flex_direction: FlexDirection::Column,
+                    display: if foldout.expanded {
+                        Display::Flex
+                    } else {
+                        Display::None
+                    },
+                    ..default()
+                },
+            ))
+            .add_child(content)
+            .id();
 
         let root = commands
             .spawn((
@@ -135,11 +150,11 @@ impl FoldoutBuilder {
                 foldout.clone(),
                 FoldoutState {
                     expanded: foldout.expanded,
-                    content,
+                    content_wrapper,
                     caret,
                 },
             ))
-            .add_children(&[header, content])
+            .add_children(&[header, content_wrapper])
             .id();
 
         commands.entity(header).observe(on_foldout_header_click);
@@ -222,7 +237,7 @@ fn on_foldout_header_click(
     };
 
     state.expanded = !state.expanded;
-    if let Ok(mut content_node) = layout.get_mut(state.content) {
+    if let Ok(mut content_node) = layout.get_mut(state.content_wrapper) {
         content_node.display = if state.expanded {
             Display::Flex
         } else {
