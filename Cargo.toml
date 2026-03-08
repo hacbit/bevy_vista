@@ -1,0 +1,62 @@
+[workspace]
+members = [".", "crates/bevy_vista_macros"]
+resolver = "2"
+
+[workspace.dependencies]
+bevy = { version = "0.17", default-features = false, features = [
+    "std",
+    "bevy_ui",
+    "bevy_picking",
+    "bevy_ui_picking_backend",
+    "bevy_ui_render",
+    "bevy_image",
+    "bevy_state",
+    "bevy_text",
+    "bevy_log",
+    "bevy_winit",
+    "reflect_auto_register",
+    "serialize",
+    "png",
+    "jpeg",
+    "default_font",
+]}
+bevy_egui = "0.38.1"
+bevy-inspector-egui = "0.35"
+serde = "1"
+base64 = "0.22.1"
+bitflags = "2.10.0"
+inventory = "0.3.21"
+arboard = "3.4.1"
+quote = "1.0"
+syn = "2.0"
+proc-macro2 = "1.0"
+
+[package]
+name = "bevy_vista"
+version = "0.1.0"
+edition = "2024"
+keywords = ["bevy", "editor", "ui"]
+
+[lib]
+name = "bevy_vista"
+path = "src/lib.rs"
+
+[dependencies]
+bevy.workspace = true
+serde.workspace = true
+base64.workspace = true
+bitflags.workspace = true
+inventory.workspace = true
+arboard.workspace = true
+
+[dev-dependencies]
+bevy_egui.workspace = true
+bevy-inspector-egui.workspace = true
+
+[dependencies.bevy_vista_macros]
+path = "crates/bevy_vista_macros"
+
+[[example]]
+# short name for quick testing
+name = "full"
+path = "examples/quick_full_editor.rs"
