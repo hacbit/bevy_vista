@@ -2,34 +2,67 @@ use std::any::TypeId;
 
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy::reflect::{DynamicEnum, PartialReflect, ReflectRef, VariantType};
+use bevy::reflect::{DynamicEnum, PartialReflect, ReflectMut, ReflectRef, VariantType};
 
 use crate::theme::Theme;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorResolvedEditor {
     Number(InspectorNumberAdapter),
     Bool(InspectorBoolAdapter),
     Choice(InspectorChoiceAdapter),
+    Val(InspectorValAdapter),
+    Vec2(InspectorVec2Adapter),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorNumberAdapter {
     F32,
-    ValPx,
+    Rot2Degrees,
     UiRectAll,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InspectorValAdapter {
+    Val,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InspectorVec2Adapter {
+    Vec2,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorBoolAdapter {
     Bool,
     Visibility,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorChoiceAdapter {
     UnitEnum,
     ColorPreset,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InspectorDriverKey {
+    Number,
+    Bool,
+    Choice,
+    Val,
+    Vec2,
+}
+
+impl InspectorResolvedEditor {
+    pub fn driver_key(self) -> InspectorDriverKey {
+        match self {
+            InspectorResolvedEditor::Number(_) => InspectorDriverKey::Number,
+            InspectorResolvedEditor::Bool(_) => InspectorDriverKey::Bool,
+            InspectorResolvedEditor::Choice(_) => InspectorDriverKey::Choice,
+            InspectorResolvedEditor::Val(_) => InspectorDriverKey::Val,
+            InspectorResolvedEditor::Vec2(_) => InspectorDriverKey::Vec2,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -38,6 +71,8 @@ pub struct InspectorFieldOptions {
     pub editor: Option<InspectorResolvedEditor>,
     pub hidden: bool,
     pub numeric_min: Option<f32>,
+    pub header: Option<InspectorHeaderOptions>,
+    pub end_header: bool,
 }
 
 impl InspectorFieldOptions {
@@ -60,6 +95,21 @@ impl InspectorFieldOptions {
         self.numeric_min = Some(min);
         self
     }
+
+    pub fn header(mut self, title: impl Into<String>) -> Self {
+        self.header = Some(InspectorHeaderOptions::new(title));
+        self
+    }
+
+    pub fn header_with_options(mut self, options: InspectorHeaderOptions) -> Self {
+        self.header = Some(options);
+        self
+    }
+
+    pub fn end_header(mut self, end_header: bool) -> Self {
+        self.end_header = end_header;
+        self
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -69,11 +119,45 @@ pub struct InspectorFieldMetadata {
 }
 
 #[derive(Clone, Debug)]
+pub struct InspectorHeaderOptions {
+    pub title: String,
+    pub default_open: bool,
+}
+
+impl InspectorHeaderOptions {
+    pub fn new(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            default_open: true,
+        }
+    }
+
+    pub fn default_open(mut self, default_open: bool) -> Self {
+        self.default_open = default_open;
+        self
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct InspectorHeaderDescriptor {
+    pub title: String,
+    pub default_open: bool,
+    pub implicit_close_previous: bool,
+}
+
+#[derive(Clone, Debug)]
 pub struct InspectorFieldDescriptor {
-    pub name: String,
+    pub field_path: String,
     pub label: String,
     pub editor: InspectorResolvedEditor,
     pub numeric_min: Option<f32>,
+}
+
+#[derive(Clone, Debug)]
+pub enum InspectorEntryDescriptor {
+    Header(InspectorHeaderDescriptor),
+    Field(InspectorFieldDescriptor),
+    EndHeader,
 }
 
 #[derive(Resource)]
@@ -90,14 +174,20 @@ impl Default for InspectorEditorRegistry {
         registry.register_type_editor::<f32>(InspectorResolvedEditor::Number(
             InspectorNumberAdapter::F32,
         ));
-        registry.register_type_editor::<Val>(InspectorResolvedEditor::Number(
-            InspectorNumberAdapter::ValPx,
-        ));
-        registry.register_type_editor::<UiRect>(InspectorResolvedEditor::Number(
-            InspectorNumberAdapter::UiRectAll,
+        registry.register_type_editor::<Val>(InspectorResolvedEditor::Val(
+            InspectorValAdapter::Val,
         ));
         registry.register_type_editor::<bool>(InspectorResolvedEditor::Bool(
             InspectorBoolAdapter::Bool,
+        ));
+        registry.register_type_editor::<Color>(InspectorResolvedEditor::Choice(
+            InspectorChoiceAdapter::ColorPreset,
+        ));
+        registry.register_type_editor::<Vec2>(InspectorResolvedEditor::Vec2(
+            InspectorVec2Adapter::Vec2,
+        ));
+        registry.register_type_editor::<Rot2>(InspectorResolvedEditor::Number(
+            InspectorNumberAdapter::Rot2Degrees,
         ));
 
         registry
@@ -109,7 +199,7 @@ impl InspectorEditorRegistry {
         self.type_editors.insert(TypeId::of::<T>(), editor);
     }
 
-    pub fn fields_for<T>(&self) -> Vec<InspectorFieldDescriptor>
+    pub fn entries_for<T>(&self) -> Vec<InspectorEntryDescriptor>
     where
         T: Reflect + Default + ShowInInspector,
     {
@@ -122,7 +212,7 @@ impl InspectorEditorRegistry {
             .map(|field| (field.field_name, field.options))
             .collect::<HashMap<_, _>>();
 
-        let mut fields = Vec::new();
+        let mut entries = Vec::new();
         for index in 0..reflected.field_len() {
             let Some(name) = reflected.name_at(index) else {
                 continue;
@@ -130,38 +220,92 @@ impl InspectorEditorRegistry {
             let Some(field) = reflected.field_at(index) else {
                 continue;
             };
-            let Some(descriptor) = self.resolve_field_descriptor(name, field, metadata.get(name))
-            else {
-                continue;
-            };
-            fields.push(descriptor);
+            let field_metadata = metadata.get(name);
+            if let Some(header) = field_metadata.and_then(|value| value.header.as_ref()) {
+                entries.push(InspectorEntryDescriptor::Header(InspectorHeaderDescriptor {
+                    title: header.title.clone(),
+                    default_open: header.default_open,
+                    implicit_close_previous: true,
+                }));
+            }
+
+            let label = field_metadata
+                .and_then(|value| value.label.clone())
+                .unwrap_or_else(|| humanize_field_name(name));
+            entries.extend(self.resolve_field_entries(
+                name,
+                &label,
+                field,
+                field_metadata,
+                field_metadata.and_then(|value| value.header.as_ref()).is_none(),
+            ));
+
+            if field_metadata.is_some_and(|value| value.end_header) {
+                entries.push(InspectorEntryDescriptor::EndHeader);
+            }
         }
-        fields
+        entries
     }
 
-    fn resolve_field_descriptor(
+    fn resolve_field_entries(
         &self,
-        field_name: &str,
+        field_path: &str,
+        label: &str,
         field: &dyn PartialReflect,
         metadata: Option<&InspectorFieldOptions>,
-    ) -> Option<InspectorFieldDescriptor> {
+        auto_group_struct: bool,
+    ) -> Vec<InspectorEntryDescriptor> {
         if metadata.is_some_and(|value| value.hidden) {
-            return None;
+            return Vec::new();
         }
 
         let editor = metadata
             .and_then(|value| value.editor)
             .or_else(|| self.editor_for_type(field))
-            .or_else(|| self.editor_for_unit_enum(field))?;
+            .or_else(|| self.editor_for_unit_enum(field));
 
-        Some(InspectorFieldDescriptor {
-            name: field_name.to_owned(),
-            label: metadata
-                .and_then(|value| value.label.clone())
-                .unwrap_or_else(|| humanize_field_name(field_name)),
-            editor,
-            numeric_min: metadata.and_then(|value| value.numeric_min),
-        })
+        if let Some(editor) = editor {
+            return vec![InspectorEntryDescriptor::Field(InspectorFieldDescriptor {
+                field_path: field_path.to_owned(),
+                label: label.to_owned(),
+                editor,
+                numeric_min: metadata.and_then(|value| value.numeric_min),
+            })];
+        }
+
+        let ReflectRef::Struct(value) = field.reflect_ref() else {
+            return Vec::new();
+        };
+
+        let mut entries = Vec::new();
+        if auto_group_struct {
+            entries.push(InspectorEntryDescriptor::Header(InspectorHeaderDescriptor {
+                title: label.to_owned(),
+                default_open: false,
+                implicit_close_previous: false,
+            }));
+        }
+        for index in 0..value.field_len() {
+            let Some(child_name) = value.name_at(index) else {
+                continue;
+            };
+            let Some(child) = value.field_at(index) else {
+                continue;
+            };
+            let child_path = format!("{field_path}.{child_name}");
+            let child_label = humanize_field_name(child_name);
+            entries.extend(self.resolve_field_entries(
+                &child_path,
+                &child_label,
+                child,
+                None,
+                true,
+            ));
+        }
+        if auto_group_struct {
+            entries.push(InspectorEntryDescriptor::EndHeader);
+        }
+        entries
     }
 
     fn editor_for_type(&self, field: &dyn PartialReflect) -> Option<InspectorResolvedEditor> {
@@ -196,9 +340,7 @@ pub trait ShowInInspector {
 pub fn editor_from_key(key: &str) -> Option<InspectorResolvedEditor> {
     match key {
         "f32" => Some(InspectorResolvedEditor::Number(InspectorNumberAdapter::F32)),
-        "val_px" => Some(InspectorResolvedEditor::Number(
-            InspectorNumberAdapter::ValPx,
-        )),
+        "val_px" | "val" => Some(InspectorResolvedEditor::Val(InspectorValAdapter::Val)),
         "ui_rect_all" => Some(InspectorResolvedEditor::Number(
             InspectorNumberAdapter::UiRectAll,
         )),
@@ -222,10 +364,9 @@ pub fn read_number_field(
 ) -> Option<f32> {
     match adapter {
         InspectorNumberAdapter::F32 => field.try_downcast_ref::<f32>().copied(),
-        InspectorNumberAdapter::ValPx => match field.try_downcast_ref::<Val>()? {
-            Val::Px(value) => Some(*value),
-            _ => Some(0.0),
-        },
+        InspectorNumberAdapter::Rot2Degrees => {
+            Some(field.try_downcast_ref::<Rot2>()?.as_degrees())
+        }
         InspectorNumberAdapter::UiRectAll => rect_uniform_px(*field.try_downcast_ref::<UiRect>()?),
     }
 }
@@ -245,11 +386,11 @@ pub fn write_number_field(
             *target = value;
             true
         }
-        InspectorNumberAdapter::ValPx => {
-            let Some(target) = field.try_downcast_mut::<Val>() else {
+        InspectorNumberAdapter::Rot2Degrees => {
+            let Some(target) = field.try_downcast_mut::<Rot2>() else {
                 return false;
             };
-            *target = Val::Px(value);
+            *target = Rot2::degrees(value);
             true
         }
         InspectorNumberAdapter::UiRectAll => {
@@ -260,6 +401,152 @@ pub fn write_number_field(
             true
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InspectorValUnit {
+    Auto,
+    Px,
+    Percent,
+    Vw,
+    Vh,
+    VMin,
+    VMax,
+}
+
+pub fn val_unit_options() -> Vec<String> {
+    ["Auto", "Px", "%", "Vw", "Vh", "VMin", "VMax"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+}
+
+pub fn read_val_field(
+    _adapter: InspectorValAdapter,
+    field: &dyn PartialReflect,
+) -> Option<(f32, usize, bool)> {
+    let (value, unit) = match field.try_downcast_ref::<Val>()? {
+        Val::Auto => (0.0, InspectorValUnit::Auto),
+        Val::Px(value) => (*value, InspectorValUnit::Px),
+        Val::Percent(value) => (*value, InspectorValUnit::Percent),
+        Val::Vw(value) => (*value, InspectorValUnit::Vw),
+        Val::Vh(value) => (*value, InspectorValUnit::Vh),
+        Val::VMin(value) => (*value, InspectorValUnit::VMin),
+        Val::VMax(value) => (*value, InspectorValUnit::VMax),
+    };
+    Some((value, val_unit_index(unit), unit != InspectorValUnit::Auto))
+}
+
+pub fn write_val_number_field(
+    _adapter: InspectorValAdapter,
+    field: &mut dyn PartialReflect,
+    value: f32,
+    numeric_min: Option<f32>,
+) -> bool {
+    let value = numeric_min.map_or(value, |min| value.max(min));
+    let Some(target) = field.try_downcast_mut::<Val>() else {
+        return false;
+    };
+    *target = match *target {
+        Val::Auto => Val::Auto,
+        Val::Px(_) => Val::Px(value),
+        Val::Percent(_) => Val::Percent(value),
+        Val::Vw(_) => Val::Vw(value),
+        Val::Vh(_) => Val::Vh(value),
+        Val::VMin(_) => Val::VMin(value),
+        Val::VMax(_) => Val::VMax(value),
+    };
+    true
+}
+
+pub fn write_val_unit_field(
+    _adapter: InspectorValAdapter,
+    field: &mut dyn PartialReflect,
+    selected: usize,
+    numeric_min: Option<f32>,
+) -> bool {
+    let Some(target) = field.try_downcast_mut::<Val>() else {
+        return false;
+    };
+    let value = match *target {
+        Val::Auto => numeric_min.unwrap_or(0.0).max(0.0),
+        Val::Px(value)
+        | Val::Percent(value)
+        | Val::Vw(value)
+        | Val::Vh(value)
+        | Val::VMin(value)
+        | Val::VMax(value) => numeric_min.map_or(value, |min| value.max(min)),
+    };
+    *target = match val_unit_from_index(selected) {
+        InspectorValUnit::Auto => Val::Auto,
+        InspectorValUnit::Px => Val::Px(value),
+        InspectorValUnit::Percent => Val::Percent(value),
+        InspectorValUnit::Vw => Val::Vw(value),
+        InspectorValUnit::Vh => Val::Vh(value),
+        InspectorValUnit::VMin => Val::VMin(value),
+        InspectorValUnit::VMax => Val::VMax(value),
+    };
+    true
+}
+
+pub fn read_vec2_field(
+    _adapter: InspectorVec2Adapter,
+    field: &dyn PartialReflect,
+) -> Option<Vec2> {
+    field.try_downcast_ref::<Vec2>().copied()
+}
+
+pub fn write_vec2_axis_field(
+    _adapter: InspectorVec2Adapter,
+    field: &mut dyn PartialReflect,
+    axis: usize,
+    value: f32,
+) -> bool {
+    let Some(target) = field.try_downcast_mut::<Vec2>() else {
+        return false;
+    };
+    match axis {
+        0 => target.x = value,
+        1 => target.y = value,
+        _ => return false,
+    }
+    true
+}
+
+pub fn read_reflect_path<'a>(
+    value: &'a dyn PartialReflect,
+    path: &str,
+) -> Option<&'a dyn PartialReflect> {
+    let mut current = value;
+    for segment in path.split('.') {
+        let ReflectRef::Struct(struct_value) = current.reflect_ref() else {
+            return None;
+        };
+        current = struct_value.field(segment)?;
+    }
+    Some(current)
+}
+
+pub fn read_reflect_path_mut<'a>(
+    value: &'a mut dyn PartialReflect,
+    path: &str,
+) -> Option<&'a mut dyn PartialReflect> {
+    fn descend<'a>(
+        current: &'a mut dyn PartialReflect,
+        segments: &[&str],
+    ) -> Option<&'a mut dyn PartialReflect> {
+        if segments.is_empty() {
+            return Some(current);
+        }
+        let ReflectMut::Struct(struct_value) = current.reflect_mut() else {
+            return None;
+        };
+        let child = struct_value.field_mut(segments[0])?;
+        descend(child, &segments[1..])
+    }
+
+    let segments = path.split('.').collect::<Vec<_>>();
+    descend(value, &segments)
 }
 
 pub fn read_bool_field(adapter: InspectorBoolAdapter, field: &dyn PartialReflect) -> Option<bool> {
@@ -399,6 +686,31 @@ fn rect_uniform_px(rect: UiRect) -> Option<f32> {
             Some(left)
         }
         _ => Some(0.0),
+    }
+}
+
+fn val_unit_index(unit: InspectorValUnit) -> usize {
+    match unit {
+        InspectorValUnit::Auto => 0,
+        InspectorValUnit::Px => 1,
+        InspectorValUnit::Percent => 2,
+        InspectorValUnit::Vw => 3,
+        InspectorValUnit::Vh => 4,
+        InspectorValUnit::VMin => 5,
+        InspectorValUnit::VMax => 6,
+    }
+}
+
+fn val_unit_from_index(index: usize) -> InspectorValUnit {
+    match index {
+        0 => InspectorValUnit::Auto,
+        1 => InspectorValUnit::Px,
+        2 => InspectorValUnit::Percent,
+        3 => InspectorValUnit::Vw,
+        4 => InspectorValUnit::Vh,
+        5 => InspectorValUnit::VMin,
+        6 => InspectorValUnit::VMax,
+        _ => InspectorValUnit::Px,
     }
 }
 

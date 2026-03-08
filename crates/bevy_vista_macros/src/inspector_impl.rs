@@ -1,8 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Data, DeriveInput, Expr, Field, Fields, LitFloat, LitStr, Result, Token, parse::Parse,
-    parse::ParseStream, parse_macro_input,
+    Data, DeriveInput, Expr, Field, Fields, LitBool, LitFloat, LitStr, Result, Token,
+    parse::Parse, parse::ParseStream, parse_macro_input,
 };
 
 pub fn show_in_inspector_derive_impl(input: TokenStream) -> TokenStream {
@@ -43,6 +43,9 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     let property = property_attr
         .parse_args::<PropertyArgs>()
         .unwrap_or_else(|err| panic!("invalid #[property(...)] on `{ident}`: {err}"));
+    if property.header.is_none() && property.header_default_open.is_some() {
+        panic!("`default_open` requires `header = \"...\"` on `{ident}`");
+    }
 
     let field_name = ident.to_string();
     let mut options = quote! { bevy_vista::inspector::InspectorFieldOptions::default() };
@@ -59,6 +62,19 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     }
     if let Some(min) = property.min {
         options = quote! { #options.numeric_min(#min) };
+    }
+    if let Some(header) = property.header {
+        let title = header.value();
+        let default_open = property.header_default_open.unwrap_or(true);
+        options = quote! {
+            #options.header_with_options(
+                bevy_vista::inspector::InspectorHeaderOptions::new(#title)
+                    .default_open(#default_open)
+            )
+        };
+    }
+    if property.end_header {
+        options = quote! { #options.end_header(true) };
     }
 
     Some(quote! {
@@ -77,8 +93,8 @@ fn editor_tokens(editor: &str) -> proc_macro2::TokenStream {
             )
         },
         "val_px" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Number(
-                bevy_vista::inspector::InspectorNumberAdapter::ValPx
+            bevy_vista::inspector::InspectorResolvedEditor::Val(
+                bevy_vista::inspector::InspectorValAdapter::Val
             )
         },
         "ui_rect_all" => quote! {
@@ -115,7 +131,10 @@ struct PropertyArgs {
     label: Option<LitStr>,
     editor: Option<LitStr>,
     min: Option<Expr>,
+    header: Option<LitStr>,
+    header_default_open: Option<bool>,
     hidden: bool,
+    end_header: bool,
 }
 
 impl Parse for PropertyArgs {
@@ -125,11 +144,17 @@ impl Parse for PropertyArgs {
             let ident: syn::Ident = input.parse()?;
             if ident == "hidden" {
                 args.hidden = true;
+            } else if ident == "end_header" {
+                args.end_header = true;
             } else {
                 input.parse::<Token![=]>()?;
                 match ident.to_string().as_str() {
                     "label" => args.label = Some(input.parse::<LitStr>()?),
                     "editor" => args.editor = Some(input.parse::<LitStr>()?),
+                    "header" => args.header = Some(input.parse::<LitStr>()?),
+                    "default_open" => {
+                        args.header_default_open = Some(input.parse::<LitBool>()?.value)
+                    }
                     "min" => {
                         let value = input.parse::<LitFloat>()?;
                         args.min = Some(syn::parse_quote!(#value));

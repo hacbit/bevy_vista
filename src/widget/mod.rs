@@ -326,40 +326,44 @@ pub enum ControlOrientation {
 #[derive(Reflect, Clone, Default, Debug, PartialEq, ShowInInspector)]
 pub struct WidgetStyle {
     // display
+    #[property(header = "Display")]
     pub display: Display,
-    #[property(label = "Visible", editor = "visibility")]
     pub visibility: Visibility,
     pub overflow: Overflow,
+    #[property(end_header)]
     pub overflow_clip_margin: OverflowClipMargin,
 
     // position
-    #[property(label = "Position")]
+    #[property(header = "Position", label = "Position")]
     pub position_type: PositionType,
     pub left: Val,
     pub right: Val,
     pub top: Val,
+    #[property(end_header)]
     pub bottom: Val,
 
     // flex
+    #[property(header = "Flex")]
     pub flex_basis: Val,
     pub flex_grow: f32,
     pub flex_shrink: f32,
     #[property(label = "Direction")]
     pub flex_direction: FlexDirection,
+    #[property(end_header)]
     pub flex_wrap: FlexWrap,
 
     // alignment
-    #[property(label = "Align")]
+    #[property(header = "Alignment", label = "Align")]
     pub align_items: AlignItems,
     pub justify_items: JustifyItems,
     pub align_self: AlignSelf,
     pub justify_self: JustifySelf,
     pub align_content: AlignContent,
-    #[property(label = "Justify")]
+    #[property(label = "Justify", end_header)]
     pub justify_content: JustifyContent,
 
     // size
-    #[property(min = 1.0)]
+    #[property(header = "Size", min = 1.0)]
     pub width: Val,
     #[property(min = 1.0)]
     pub height: Val,
@@ -369,25 +373,29 @@ pub struct WidgetStyle {
     pub min_height: Val,
     #[property(min = 1.0)]
     pub max_width: Val,
-    #[property(min = 1.0)]
+    #[property(min = 1.0, end_header)]
     pub max_height: Val,
 
     // box model
+    #[property(header = "Box Model")]
     pub box_sizing: BoxSizing,
     pub margin: UiRect,
-    #[property(min = 0.0)]
+    #[property(min = 0.0, end_header)]
     pub padding: UiRect,
 
     // background
-    #[property(label = "Background", editor = "color_preset")]
+    #[property(header = "Appearance", label = "Background", editor = "color_preset")]
     pub background_color: Color,
 
     // border
+    #[property(header = "Border")]
     pub border: UiRect,
     pub border_radius: BorderRadius,
+    #[property(end_header)]
     pub border_color: BorderColor,
 
     // transform
+    #[property(header = "Transform", end_header)]
     pub transform: UiTransform,
 }
 
