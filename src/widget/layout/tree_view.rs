@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_vista_macros::ShowInInspector;
 
-use crate::icons::{Icons, IconsManager};
+use crate::icons::Icons;
 use crate::theme::Theme;
 
 use super::*;
@@ -10,10 +10,7 @@ pub struct TreeViewPlugin;
 
 impl Plugin for TreeViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PostUpdate,
-            (initialize_tree_node_carets, sync_tree_node_child_presence),
-        );
+        app.add_systems(PostUpdate, sync_tree_node_child_presence);
     }
 }
 
@@ -309,7 +306,24 @@ fn spawn_tree_node_inner(
         ),
     };
 
-    let caret_entity = commands.spawn_empty().id();
+    let caret_entity = commands
+        .spawn((
+            Node {
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: UiRect::all(Val::Px(2.)),
+                width: Val::Px(16.),
+                height: Val::Px(16.),
+                ..default()
+            },
+            Icons::TriangleRight,
+            UiTransform::from_rotation(if node.expanded {
+                ROT_TO_DOWN
+            } else {
+                ROT_TO_RIGHT
+            }),
+        ))
+        .id();
     let label_entity = commands
         .spawn((Text::new(node.label), text_font, TextColor(text_color)))
         .id();
@@ -403,40 +417,6 @@ fn spawn_tree_node_inner(
 
 const ROT_TO_RIGHT: Rot2 = Rot2::IDENTITY;
 const ROT_TO_DOWN: Rot2 = Rot2::FRAC_PI_2;
-
-fn initialize_tree_node_carets(
-    mut commands: Commands,
-    query: Query<&TreeNodeState, Added<TreeNodeState>>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    for state in query.iter() {
-        commands.entity(state.caret).insert((
-            Node {
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                margin: UiRect::all(Val::Px(2.)),
-                width: Val::Px(16.),
-                height: Val::Px(16.),
-                ..default()
-            },
-            ImageNode::new(
-                icons_mgr
-                    .get_icon(&mut images, Icons::TriangleRight)
-                    .unwrap(),
-            ),
-            UiTransform::from_rotation(if state.expanded {
-                ROT_TO_DOWN
-            } else {
-                ROT_TO_RIGHT
-            }),
-        ));
-
-        if !state.has_children {
-            commands.entity(state.caret).insert(Visibility::Hidden);
-        }
-    }
-}
 
 fn sync_tree_node_child_presence(
     mut states: Query<&mut TreeNodeState>,

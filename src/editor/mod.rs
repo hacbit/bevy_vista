@@ -405,8 +405,6 @@ fn init_editor_title_bar(
     mut commands: Commands,
     title_bar: Single<Entity, With<TitleBar>>,
     editor_theme: Res<EditorTheme>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
 ) {
     let theme = &editor_theme.0;
     commands.entity(*title_bar).with_children(|parent| {
@@ -419,11 +417,7 @@ fn init_editor_title_bar(
                 ..default()
             },
             TitleFoldButton,
-            ImageNode::new(
-                icons_mgr
-                    .get_icon(&mut images, Icons::TriangleRight)
-                    .unwrap(),
-            ),
+            Icons::TriangleRight,
         ));
 
         // title text

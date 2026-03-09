@@ -17,7 +17,7 @@ pub mod prelude {
     pub use super::asset::*;
     pub use super::bevy_vista_macros::Widget;
     pub use super::editor_resources::*;
-    pub use super::icons::{EditorIconsPlugin, Icons, IconsManager};
+    pub use super::icons::{EditorIconsPlugin, Icons};
     pub use super::theme::{
         EditorTheme, Theme, ThemeBoundary, ThemeMode, ThemeScope, ViewportThemeState,
     };

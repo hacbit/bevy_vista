@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::icons::{Icons, IconsManager};
+use crate::icons::Icons;
 use crate::inspector::{
     InspectorDriverKey, InspectorEditorRegistry, InspectorEntryDescriptor,
     InspectorFieldDescriptor, InspectorHeaderDescriptor, InspectorResolvedEditor,
@@ -171,8 +171,6 @@ pub(super) fn init_inspector_panel(
     editor_theme: Res<EditorTheme>,
     registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
 ) {
     let theme = Some(&editor_theme.0);
     let panel_bg = editor_theme.0.palette.surface;
@@ -267,8 +265,6 @@ pub(super) fn init_inspector_panel(
         font_size,
         text_color,
         InspectorBindingTarget::Style,
-        &mut icons_mgr,
-        &mut images,
     );
     let property_list = ScrollViewBuilder::new()
         .width(percent(100.0))
@@ -315,8 +311,6 @@ fn build_property_entries(
     font_size: f32,
     text_color: Color,
     target: InspectorBindingTarget,
-    icons_mgr: &mut IconsManager,
-    images: &mut Assets<Image>,
 ) -> Entity {
     struct GroupFrame {
         header: InspectorHeaderDescriptor,
@@ -382,8 +376,6 @@ fn build_property_entries(
                     font_size,
                     text_color,
                     target.clone(),
-                    icons_mgr,
-                    images,
                 );
                 if let Some(group) = group_stack.last_mut() {
                     group.children.push(row);
@@ -438,8 +430,6 @@ pub(super) fn sync_widget_property_section(
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
     editor_theme: Res<EditorTheme>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
     section: Single<
         (Entity, &mut Node, &mut InspectorWidgetSectionState),
         With<InspectorWidgetSectionRoot>,
@@ -524,8 +514,6 @@ pub(super) fn sync_widget_property_section(
         font_size,
         text_color,
         InspectorBindingTarget::WidgetProp,
-        &mut icons_mgr,
-        &mut images,
     );
     let foldout = FoldoutBuilder::new("Widget")
         .expanded(true)
@@ -1173,8 +1161,6 @@ fn spawn_property_row(
     font_size: f32,
     text_color: Color,
     target: InspectorBindingTarget,
-    icons_mgr: &mut IconsManager,
-    images: &mut Assets<Image>,
 ) -> Entity {
     let decoration = InspectorFieldDecoration {
         field_path: field.field_path.clone(),
@@ -1195,7 +1181,6 @@ fn spawn_property_row(
     let control = control_registry.build(commands, field, theme);
     apply_binding_target(commands, control, target);
     let button_widget = ButtonWidget::default();
-    let undo_icon = icons_mgr.get_icon(images, Icons::Undo);
     let reset_button = commands
         .spawn((
             Button,
@@ -1215,18 +1200,14 @@ fn spawn_property_row(
             InspectorResetButton,
         ))
         .with_children(|parent| {
-            if let Some(handle) = undo_icon {
-                parent.spawn((
-                    Node {
-                        width: px(14.0),
-                        height: px(14.0),
-                        ..default()
-                    },
-                    ImageNode::new(handle),
-                ));
-            } else {
-                parent.spawn((LabelBuilder::new().text("Def").font_size(10.0).build(),));
-            }
+            parent.spawn((
+                Node {
+                    width: px(14.0),
+                    height: px(14.0),
+                    ..default()
+                },
+                Icons::Undo,
+            ));
         })
         .observe(on_inspector_reset_button_click)
         .id();

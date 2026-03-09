@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 use bevy_vista_macros::ShowInInspector;
 
-use crate::{
-    icons::{Icons, IconsManager},
-    theme::Theme,
-};
+use crate::{icons::Icons, theme::Theme};
 
 use super::*;
 
@@ -12,10 +9,8 @@ pub struct CheckboxPlugin;
 
 impl Plugin for CheckboxPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<CheckboxChange>().add_systems(
-            PostUpdate,
-            (initialize_checkbox_icons, sync_checkbox_interaction),
-        );
+        app.add_message::<CheckboxChange>()
+            .add_systems(PostUpdate, sync_checkbox_interaction);
     }
 }
 
@@ -106,6 +101,7 @@ impl CheckboxBuilder {
                 BackgroundColor(colors.mark),
                 Visibility::Hidden,
                 CheckboxMark,
+                Icons::Checkmark,
             ))
             .id();
         let entity = commands
@@ -198,20 +194,6 @@ fn sync_checkbox_interaction(
                 mark_bg.0 = colors.mark;
             }
         }
-    }
-}
-
-fn initialize_checkbox_icons(
-    mut commands: Commands,
-    query: Query<Entity, Added<CheckboxMark>>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    for entity in query.iter() {
-        let Some(icon) = icons_mgr.get_icon(&mut images, Icons::Checkmark) else {
-            continue;
-        };
-        commands.entity(entity).insert(ImageNode::new(icon));
     }
 }
 

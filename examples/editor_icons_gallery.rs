@@ -19,27 +19,13 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn((Camera2d, IsDefaultUiCamera));
 }
 
-fn setup_gallery(
-    mut commands: Commands,
-    theme: Res<Theme>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup_gallery(mut commands: Commands, theme: Res<Theme>) {
     let icons = Icons::reflected_variants();
     let header = spawn_header(&mut commands, &theme, icons.len());
 
     let cards: Vec<Entity> = icons
         .iter()
-        .map(|(name, icon)| {
-            spawn_icon_card(
-                &mut commands,
-                &theme,
-                &mut icons_mgr,
-                &mut images,
-                name,
-                *icon,
-            )
-        })
+        .map(|(name, icon)| spawn_icon_card(&mut commands, &theme, name, *icon))
         .collect();
 
     let grid = commands
@@ -115,14 +101,7 @@ fn spawn_header(commands: &mut Commands, theme: &Theme, icon_count: usize) -> En
     header
 }
 
-fn spawn_icon_card(
-    commands: &mut Commands,
-    theme: &Theme,
-    icons_mgr: &mut IconsManager,
-    images: &mut Assets<Image>,
-    name: &str,
-    icon: Icons,
-) -> Entity {
+fn spawn_icon_card(commands: &mut Commands, theme: &Theme, name: &str, icon: Icons) -> Entity {
     let icon_frame = commands
         .spawn((
             Name::new(format!("{name} Frame")),
@@ -139,28 +118,17 @@ fn spawn_icon_card(
         ))
         .id();
 
-    if let Some(handle) = icons_mgr.get_icon(images, icon) {
-        let image = commands
-            .spawn((
-                ImageNode::new(handle),
-                Node {
-                    width: px(34.0),
-                    height: px(34.0),
-                    ..default()
-                },
-            ))
-            .id();
-        commands.entity(icon_frame).add_child(image);
-    } else {
-        let fallback = commands
-            .spawn((
-                Text::new("?"),
-                theme.typography.title_medium.font.clone(),
-                TextColor(theme.palette.warning),
-            ))
-            .id();
-        commands.entity(icon_frame).add_child(fallback);
-    }
+    let image = commands
+        .spawn((
+            Node {
+                width: px(34.0),
+                height: px(34.0),
+                ..default()
+            },
+            icon,
+        ))
+        .id();
+    commands.entity(icon_frame).add_child(image);
 
     let title = commands
         .spawn((

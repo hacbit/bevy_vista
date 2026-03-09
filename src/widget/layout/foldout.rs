@@ -1,19 +1,14 @@
 use bevy::prelude::*;
 use bevy_vista_macros::ShowInInspector;
 
-use crate::{
-    icons::{Icons, IconsManager},
-    theme::Theme,
-};
+use crate::{icons::Icons, theme::Theme};
 
 use super::*;
 
 pub struct FoldoutPlugin;
 
 impl Plugin for FoldoutPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, initialize_foldout_caret);
-    }
+    fn build(&self, _app: &mut App) {}
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
@@ -92,7 +87,24 @@ impl FoldoutBuilder {
             ),
         };
 
-        let caret = commands.spawn_empty().id();
+        let caret = commands
+            .spawn((
+                Node {
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::all(Val::Px(2.)),
+                    width: Val::Px(16.),
+                    height: Val::Px(16.),
+                    ..default()
+                },
+                Icons::TriangleRight,
+                UiTransform::from_rotation(if foldout.expanded {
+                    ROT_TO_DOWN
+                } else {
+                    ROT_TO_RIGHT
+                }),
+            ))
+            .id();
         let title = commands
             .spawn((Text::new(self.title), font, TextColor(text_color)))
             .id();
@@ -187,36 +199,6 @@ impl DefaultWidgetBuilder for FoldoutBuilder {
             ),
             theme,
         )
-    }
-}
-
-fn initialize_foldout_caret(
-    mut commands: Commands,
-    query: Query<&FoldoutState, Added<FoldoutState>>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    for state in query.iter() {
-        commands.entity(state.caret).insert((
-            Node {
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                margin: UiRect::all(Val::Px(2.)),
-                width: Val::Px(16.),
-                height: Val::Px(16.),
-                ..default()
-            },
-            ImageNode::new(
-                icons_mgr
-                    .get_icon(&mut images, Icons::TriangleRight)
-                    .unwrap(),
-            ),
-            UiTransform::from_rotation(if state.expanded {
-                ROT_TO_DOWN
-            } else {
-                ROT_TO_RIGHT
-            }),
-        ));
     }
 }
 

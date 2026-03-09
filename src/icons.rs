@@ -1,55 +1,52 @@
-use bevy::app::Plugin;
 use bevy::asset::{Assets, Handle, RenderAssetUsages};
-use bevy::ecs::resource::Resource;
 use bevy::image::{CompressedImageFormats, Image, ImageSampler, ImageType};
-use bevy::log::*;
+use bevy::prelude::*;
 use bevy_vista_macros::generate_icons;
 
 /// Provides common editor icons
+/// 
+/// # Examples
+/// ```rust
+/// use bevy::prelude::*;
+/// use bevy_vista::prelude::*;
+///
+/// struct MyPlugin;
+///
+/// impl Plugin for MyPlugin {
+///     fn build(app: &mut App) {
+///         app.add_systems(Startup, test_load_icon);
+///     }
+/// }
+///
+/// fn test_load_icon(
+///     mut commands: Commands,
+/// ) {
+///     commands.spawn((
+///         Node {
+///             width: px(30.),
+///             height: px(30.),
+///             ..default()
+///         },
+///         Icons::ArrowLeft,
+///     ));
+/// }
+/// ```
 pub struct EditorIconsPlugin;
 
 impl Plugin for EditorIconsPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.init_resource::<IconsManager>().register_type::<Icons>();
+        app.init_resource::<IconsManager>()
+            .register_type::<Icons>()
+            .add_systems(PostUpdate, sync_icon_components);
     }
 }
 
 generate_icons! {
-    /// This resource handle the registered editor icons
-    ///
-    /// # Examples
-    /// ```rust
-    /// use bevy::prelude::*;
-    /// use bevy_vista::prelude::*;
-    ///
-    /// struct MyPlugin;
-    ///
-    /// impl Plugin for MyPlugin {
-    ///     fn build(app: &mut App) {
-    ///         app.add_systems(Startup, test_load_icon);
-    ///     }
-    /// }
-    ///
-    /// fn test_load_icon(
-    ///     mut commands: Commands,
-    ///     mut icons_mgr: ResMut<IconsManager>,
-    ///     mut images: ResMut<Assets<Image>>,
-    /// ) {
-    ///     commands.spawn((
-    ///         Node {
-    ///             width: px(30.),
-    ///             height: px(30.),
-    ///             ..default()
-    ///         },
-    ///         ImageNode(icons_mgr.get_icon(&mut images, Icons::ArrowLeft).unwrap()),
-    ///     ));
-    /// }
-    /// ```
     #[derive(Resource, Default)]
     #[icons_data("./src/icons_data.txt")]
     struct IconsManager
 
-    #[derive(Hash, PartialEq, Eq, Clone, Copy)]
+    #[derive(Component, Hash, PartialEq, Eq, Clone, Copy)]
     enum Icons
 }
 
@@ -86,6 +83,31 @@ impl IconsManager {
             self.handles.insert(icon, handle.clone());
             Some(handle)
         }
+    }
+}
+
+fn sync_icon_components(
+    mut commands: Commands,
+    mut icons_mgr: ResMut<IconsManager>,
+    mut images: ResMut<Assets<Image>>,
+    mut with_image: Query<(&Icons, &mut ImageNode), Or<(Added<Icons>, Changed<Icons>)>>,
+    without_image: Query<
+        (Entity, &Icons),
+        (Or<(Added<Icons>, Changed<Icons>)>, Without<ImageNode>),
+    >,
+) {
+    for (icon, mut image_node) in &mut with_image {
+        let Some(handle) = icons_mgr.get_icon(&mut images, *icon) else {
+            continue;
+        };
+        image_node.image = handle;
+    }
+
+    for (entity, icon) in &without_image {
+        let Some(handle) = icons_mgr.get_icon(&mut images, *icon) else {
+            continue;
+        };
+        commands.entity(entity).insert(ImageNode::new(handle));
     }
 }
 

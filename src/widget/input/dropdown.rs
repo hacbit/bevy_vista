@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_vista_macros::ShowInInspector;
 
 use crate::{
-    icons::{Icons, IconsManager},
+    icons::Icons,
     theme::{Theme, ThemeBoundary, ThemeScope, resolve_theme_or_global},
 };
 
@@ -29,7 +29,6 @@ impl Plugin for DropdownPlugin {
                 (
                     close_dropdowns_on_outside_click,
                     sync_dropdown_popup_presence,
-                    initialize_dropdown_carets,
                     sync_dropdown_visuals,
                     sync_dropdown_popup_layout,
                     sync_dropdown_interaction,
@@ -230,6 +229,8 @@ impl DropdownBuilder {
                 },
                 DropdownCaret,
                 DropdownOwnedBy(root),
+                Icons::ArrowRight,
+                UiTransform::from_rotation(Rot2::IDENTITY),
             ))
             .id();
 
@@ -437,23 +438,6 @@ fn sync_dropdown_interaction(
                 Interaction::None => base_color,
             }
         };
-    }
-}
-
-fn initialize_dropdown_carets(
-    mut commands: Commands,
-    query: Query<Entity, Added<DropdownCaret>>,
-    mut icons_mgr: ResMut<IconsManager>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    for entity in query.iter() {
-        let Some(icon) = icons_mgr.get_icon(&mut images, Icons::ArrowRight) else {
-            continue;
-        };
-        commands.entity(entity).insert((
-            ImageNode::new(icon),
-            UiTransform::from_rotation(Rot2::IDENTITY),
-        ));
     }
 }
 
