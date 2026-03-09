@@ -317,6 +317,11 @@ fn spawn_tree_node_inner(
                 ..default()
             },
             Icons::TriangleRight,
+            if has_children {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            },
             UiTransform::from_rotation(if node.expanded {
                 ROT_TO_DOWN
             } else {
