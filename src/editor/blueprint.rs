@@ -1,5 +1,6 @@
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+use std::fmt;
 
 use crate::inspector::InspectorEditorRegistry;
 use crate::widget::{WidgetRegistry, WidgetStyle, spawn_blueprint_widget_content};
@@ -12,7 +13,7 @@ pub type BlueprintNodeId = u64;
 pub enum BlueprintChildRule {
     Any,
     Exact(usize),
-    Range { min: usize, max: Option<usize> },
+    Range { max: Option<usize> },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,10 +58,7 @@ impl Default for WidgetSchemaRegistry {
         schemas.insert(
             "common/button".to_owned(),
             WidgetSchema {
-                child_rule: BlueprintChildRule::Range {
-                    min: 0,
-                    max: Some(1),
-                },
+                child_rule: BlueprintChildRule::Range { max: Some(1) },
             },
         );
         Self { schemas }
@@ -76,7 +74,7 @@ impl WidgetSchemaRegistry {
         match self.get_schema(widget_path).child_rule {
             BlueprintChildRule::Any => true,
             BlueprintChildRule::Exact(n) => next_count <= n,
-            BlueprintChildRule::Range { min: _, max } => match max {
+            BlueprintChildRule::Range { max } => match max {
                 Some(max) => next_count <= max,
                 None => true,
             },
@@ -182,6 +180,24 @@ pub enum BlueprintCommandError {
         parent: BlueprintNodeId,
         parent_widget: String,
     },
+}
+
+impl fmt::Display for BlueprintCommandError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownWidgetPath(path) => write!(f, "unknown widget path: {path}"),
+            Self::ParentNotFound(parent) => write!(f, "parent node not found: {parent}"),
+            Self::NodeNotFound(node) => write!(f, "node not found: {node}"),
+            Self::InvalidMove => write!(f, "invalid node move"),
+            Self::ChildConstraintViolated {
+                parent,
+                parent_widget,
+            } => write!(
+                f,
+                "child constraint violated for parent {parent} ({parent_widget})"
+            ),
+        }
+    }
 }
 
 pub fn apply_blueprint_command(
@@ -456,7 +472,7 @@ fn is_descendant(
 }
 
 #[derive(Component, Copy, Clone)]
-pub struct BlueprintNodeRef(pub BlueprintNodeId);
+pub struct BlueprintNodeRef;
 
 #[derive(Resource, Default)]
 pub struct BlueprintRuntimeMap {
@@ -572,7 +588,7 @@ fn compile_node_recursive(
 
     let entity =
         viewport::spawn_canvas_widget_instance(commands, parent, content, &node.widget_path);
-    commands.entity(entity).insert(BlueprintNodeRef(node_id));
+    commands.entity(entity).insert(BlueprintNodeRef);
     runtime_map.node_to_entity.insert(node_id, entity);
     runtime_map.entity_to_node.insert(entity, node_id);
 

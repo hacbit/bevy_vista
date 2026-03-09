@@ -57,9 +57,7 @@ pub(crate) struct CanvasResizeDragState {
 }
 
 #[derive(Component, Clone)]
-pub(crate) struct CanvasWidgetInstance {
-    pub widget_id: String,
-}
+pub(crate) struct CanvasWidgetInstance;
 
 #[derive(Component, Default)]
 pub(crate) struct CanvasWidgetDragState {
@@ -588,9 +586,7 @@ pub(super) fn spawn_canvas_widget_instance(
             },
             BorderColor::all(Color::NONE),
             BorderRadius::all(px(4.0)),
-            CanvasWidgetInstance {
-                widget_id: widget_id.to_owned(),
-            },
+            CanvasWidgetInstance,
             CanvasWidgetDragState::default(),
         ))
         .id();
