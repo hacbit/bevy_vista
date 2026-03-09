@@ -38,6 +38,7 @@ name = "bevy_vista"
 version = "0.1.0"
 edition = "2024"
 keywords = ["bevy", "editor", "ui"]
+license = "Apache-2.0"
 
 [lib]
 name = "bevy_vista"
