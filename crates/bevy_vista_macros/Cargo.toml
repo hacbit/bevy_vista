@@ -1,7 +1,15 @@
 [package]
 name = "bevy_vista_macros"
-version = "0.1.0"
+version = "0.17.0"
 edition = "2024"
+description = "Procedural macros for bevy_vista widget registration and inspector metadata."
+license = "Apache-2.0"
+repository = "https://github.com/hacbit/bevy_vista"
+documentation = "https://docs.rs/bevy_vista_macros"
+readme = "README.md"
+keywords = ["bevy", "proc-macro", "ui"]
+categories = ["development-tools::procedural-macro-helpers", "gui"]
+authors = ["hacbit <hacbit@foxmail.com>"]
 
 [lib]
 name = "bevy_vista_macros"

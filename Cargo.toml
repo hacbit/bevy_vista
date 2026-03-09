@@ -37,8 +37,14 @@ proc-macro2 = "1.0"
 name = "bevy_vista"
 version = "0.17.0"
 edition = "2024"
+description = "A visual UI editor plugin for Bevy with inspector-driven editing and .vista.ron serialization."
 keywords = ["bevy", "editor", "ui"]
+categories = ["game-development", "gui"]
 license = "Apache-2.0"
+repository = "https://github.com/hacbit/bevy_vista"
+documentation = "https://docs.rs/bevy_vista"
+readme = "README.md"
+authors = ["hacbit <hacbit@foxmail.com>"]
 
 [lib]
 name = "bevy_vista"
@@ -59,6 +65,7 @@ bevy_egui.workspace = true
 bevy-inspector-egui.workspace = true
 
 [dependencies.bevy_vista_macros]
+version = "0.17.0"
 path = "crates/bevy_vista_macros"
 
 [[example]]
