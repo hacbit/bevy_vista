@@ -1,8 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Data, DeriveInput, Expr, Field, Fields, LitBool, LitFloat, LitStr, Result, Token,
-    parse::Parse, parse::ParseStream, parse_macro_input,
+    Data, DeriveInput, Expr, Field, Fields, LitBool, LitFloat, LitStr, Result, Token, parse::Parse,
+    parse::ParseStream, parse_macro_input,
 };
 
 pub fn show_in_inspector_derive_impl(input: TokenStream) -> TokenStream {

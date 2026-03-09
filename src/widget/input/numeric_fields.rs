@@ -146,7 +146,6 @@ macro_rules! define_numeric_field {
                 pub fn build(self, commands: &mut Commands, theme: Option<&Theme>) -> Entity {
                     let root = commands
                         .spawn((
-                            Name::new(stringify!($field)),
                             Node {
                                 width: self.width,
                                 height: self.height,

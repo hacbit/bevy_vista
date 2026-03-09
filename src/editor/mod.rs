@@ -3,11 +3,12 @@ use bevy::ecs::{name::Name, system::Commands};
 use bevy::ui::{Node, Val};
 use bevy::{prelude::*, state::state::FreelyMutableState};
 
-mod blueprint;
+pub(crate) mod blueprint;
 mod foldable;
 mod hierarchy;
 mod inspector;
 mod title_draggable;
+mod toolbar;
 mod viewport;
 mod widget_lib;
 
@@ -26,6 +27,8 @@ pub(crate) fn init_editor_ui(app: &mut App) {
         .init_resource::<blueprint::WidgetBlueprintDocument>()
         .init_resource::<blueprint::WidgetSchemaRegistry>()
         .init_resource::<blueprint::BlueprintRuntimeMap>()
+        .init_resource::<toolbar::EditorDocumentPath>()
+        .init_resource::<toolbar::EditorDocumentToolbarState>()
         .init_resource::<crate::inspector::InspectorEditorRegistry>()
         .init_resource::<inspector::InspectorPanelState>()
         .init_resource::<inspector::InspectorControlRegistry>()
@@ -51,10 +54,12 @@ pub(crate) fn init_editor_ui(app: &mut App) {
             OnEnter(ElementNonInteractable),
             (
                 init_editor_title_bar,
+                toolbar::init_main_toolbar,
                 viewport::init_viewport_panel,
                 widget_lib::init_widget_lib_panel,
                 hierarchy::init_hierarchy_panel,
                 inspector::init_inspector_panel,
+                toolbar::init_status_bar,
                 change_state_to(ElementInteractable),
             ),
         )
@@ -71,6 +76,8 @@ pub(crate) fn init_editor_ui(app: &mut App) {
             Update,
             (
                 (
+                    toolbar::apply_document_toolbar_actions,
+                    toolbar::sync_editor_toolbar_status,
                     widget_lib::attach_widget_lib_tree_item_observers,
                     viewport::apply_viewport_toolbar_changes,
                     viewport::sync_viewport_toolbar,
@@ -87,14 +94,20 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                 (
                     inspector::apply_inspector_name_changes,
                     inspector::apply_inspector_numeric_changes,
+                    inspector::apply_inspector_string_changes,
                     inspector::apply_inspector_dropdown_changes,
                     inspector::apply_inspector_checkbox_changes,
+                    inspector::apply_inspector_color_changes,
                     inspector::refresh_inspector_panel,
+                    inspector::sync_widget_property_section,
                     inspector::sync_inspector_numeric_controls,
+                    inspector::sync_inspector_string_controls,
                     inspector::sync_inspector_dropdown_controls,
                     inspector::sync_inspector_checkbox_controls,
+                    inspector::sync_inspector_color_controls,
                     inspector::sync_inspector_val_controls,
                     inspector::sync_inspector_vec2_controls,
+                    inspector::sync_inspector_field_markers,
                 )
                     .chain(),
                 viewport::toggle_preview_mode_with_key,
@@ -334,8 +347,11 @@ fn spawn_content_panels(
             Node {
                 flex_grow: 0.,
                 flex_shrink: 0.,
-                flex_direction: FlexDirection::Column,
-                height: Val::Px(30.),
+                flex_direction: FlexDirection::Row,
+                min_height: Val::Px(36.),
+                padding: UiRect::axes(px(8.0), px(4.0)),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
                 border: UiRect::bottom(Val::Px(1.)),
                 ..default()
             },

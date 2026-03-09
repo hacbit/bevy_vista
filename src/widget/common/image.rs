@@ -1,11 +1,23 @@
 use super::*;
+use bevy::app::PostUpdate;
 use bevy::prelude::{Handle, Image};
+use bevy_vista_macros::ShowInInspector;
 
-#[derive(Widget, Reflect, Clone, Default, Debug)]
+pub struct ImageWidgetPlugin;
+
+impl Plugin for ImageWidgetPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(PostUpdate, sync_image_widgets);
+    }
+}
+
+#[derive(Widget, Reflect, Component, Clone, Default, Debug, ShowInInspector)]
 #[widget("common/image")]
 #[builder(ImageBuilder)]
 pub struct ImageWidget {
+    #[property(hidden)]
     pub image: Option<Handle<Image>>,
+    #[property(label = "Color")]
     pub color: Color,
 }
 
@@ -55,15 +67,16 @@ impl ImageBuilder {
     }
 
     pub fn build(self) -> impl Bundle {
+        let widget = self.widget;
         (
-            Name::new("Image"),
+            widget.clone(),
             Node {
                 width: self.width,
                 height: self.height,
                 ..default()
             },
-            self.widget.image.map(ImageNode::new).unwrap_or_default(),
-            BackgroundColor(self.widget.color),
+            widget.image.map(ImageNode::new).unwrap_or_default(),
+            BackgroundColor(widget.color),
         )
     }
 }
@@ -71,5 +84,16 @@ impl ImageBuilder {
 impl DefaultWidgetBuilder for ImageBuilder {
     fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
         commands.spawn(ImageBuilder::new().build()).id()
+    }
+}
+
+fn sync_image_widgets(
+    mut query: Query<(&ImageWidget, &mut ImageNode, &mut BackgroundColor), Changed<ImageWidget>>,
+) {
+    for (widget, mut image, mut background) in query.iter_mut() {
+        image.image = widget.image.clone().unwrap_or_default();
+        if background.0 != widget.color {
+            background.0 = widget.color;
+        }
     }
 }

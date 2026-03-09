@@ -1,4 +1,5 @@
 use bevy::app::PostUpdate;
+use bevy_vista_macros::ShowInInspector;
 
 use super::*;
 
@@ -82,7 +83,6 @@ impl ButtonBuilder {
         let normal_color = widget.bg_normal_color;
 
         (
-            Name::new("Button"),
             Button,
             widget,
             Interaction::default(),
@@ -106,13 +106,17 @@ impl DefaultWidgetBuilder for ButtonBuilder {
     }
 }
 
-#[derive(Widget, Reflect, Component)]
+#[derive(Widget, Reflect, Component, Clone, ShowInInspector)]
 #[widget("common/button")]
 #[builder(ButtonBuilder)]
 pub struct ButtonWidget {
+    #[property(label = "Normal")]
     pub bg_normal_color: Color,
+    #[property(label = "Hover")]
     pub bg_hover_color: Color,
+    #[property(label = "Pressed")]
     pub bg_pressed_color: Color,
+    #[property(label = "Disabled")]
     pub bg_disabled_color: Color,
 }
 

@@ -10,6 +10,7 @@ use bevy::picking::{
     prelude::*,
 };
 use bevy::reflect::Reflect;
+use bevy_vista_macros::ShowInInspector;
 
 use super::*;
 
@@ -64,14 +65,19 @@ fn is_enable_mouse_wheel(options: Res<ScrollOptions>) -> bool {
     options.enable_mouse_wheel
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("layout/scroll_view")]
 #[builder(ScrollViewBuilder)]
 pub struct ScrollView {
+    #[property(label = "Horizontal Bar")]
     pub horizontal_bar: ScrollbarVisibility,
+    #[property(label = "Vertical Bar")]
     pub vertical_bar: ScrollbarVisibility,
+    #[property(label = "Min Thumb Length", min = 1.0)]
     pub min_thumb_length: f32,
+    #[property(label = "Content Padding")]
     pub content_padding: UiRect,
+    #[property(label = "Scroll Area Background")]
     pub scroll_area_bg: Option<Color>,
 }
 
@@ -177,7 +183,6 @@ impl ScrollViewBuilder {
     ) -> Entity {
         let root = commands
             .spawn((
-                Name::new("Scroll View"),
                 Node {
                     width: self.width,
                     height: self.height,

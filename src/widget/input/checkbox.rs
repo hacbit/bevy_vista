@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_vista_macros::ShowInInspector;
 
 use crate::{
     icons::{Icons, IconsManager},
@@ -18,11 +19,13 @@ impl Plugin for CheckboxPlugin {
     }
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("input/checkbox")]
 #[builder(CheckboxBuilder)]
 pub struct Checkbox {
+    #[property(label = "Checked")]
     pub checked: bool,
+    #[property(label = "Disabled")]
     pub disabled: bool,
 }
 
@@ -107,7 +110,6 @@ impl CheckboxBuilder {
             .id();
         let entity = commands
             .spawn((
-                Name::new("Checkbox"),
                 Node {
                     width: px(self.size),
                     height: px(self.size),

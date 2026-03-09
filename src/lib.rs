@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 pub use bevy_vista_macros;
 
+pub mod asset;
 pub mod editor;
 pub mod editor_resources;
 pub mod grid;
@@ -13,6 +14,7 @@ pub mod widget;
 
 pub mod prelude {
     pub use super::VistaUiPlugin;
+    pub use super::asset::*;
     pub use super::bevy_vista_macros::Widget;
     pub use super::editor_resources::*;
     pub use super::icons::{EditorIconsPlugin, Icons, IconsManager};
@@ -44,7 +46,12 @@ impl Plugin for VistaUiPlugin {
             .init_resource::<EditorTheme>()
             .init_resource::<ViewportThemeState>();
 
-        ensure_plugins_added!(app, icons::EditorIconsPlugin, widget::VistaWidgetsPlugin,);
+        ensure_plugins_added!(
+            app,
+            icons::EditorIconsPlugin,
+            widget::VistaWidgetsPlugin,
+            asset::VistaAssetPlugin
+        );
         grid::load_grid_shader(app);
         editor_resources::init_vista_editor_resources(app);
         // canvas::init_canvas(app);

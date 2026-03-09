@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_vista_macros::ShowInInspector;
 
 use crate::theme::Theme;
 
@@ -11,13 +12,17 @@ pub enum DividerAxis {
     Horizontal,
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("layout/divider")]
 #[builder(DividerBuilder)]
 pub struct Divider {
+    #[property(label = "Axis")]
     pub axis: DividerAxis,
+    #[property(label = "Thickness")]
     pub thickness: Val,
+    #[property(label = "Color")]
     pub color: Option<Color>,
+    #[property(label = "Hover Color")]
     pub hover_color: Option<Color>,
 }
 
@@ -91,12 +96,7 @@ impl DividerBuilder {
             },
         };
 
-        (
-            Name::new("Divider"),
-            node,
-            BackgroundColor(base_color),
-            divider,
-        )
+        (node, BackgroundColor(base_color), divider)
     }
 }
 

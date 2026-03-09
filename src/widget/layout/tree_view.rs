@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_vista_macros::ShowInInspector;
 
 use crate::icons::{Icons, IconsManager};
 use crate::theme::Theme;
@@ -16,11 +17,13 @@ impl Plugin for TreeViewPlugin {
     }
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("layout/tree_view")]
 #[builder(TreeViewBuilder)]
 pub struct TreeView {
+    #[property(label = "Indent", min = 0.0)]
     pub indent: f32,
+    #[property(label = "Item Gap", min = 0.0)]
     pub item_gap: f32,
 }
 

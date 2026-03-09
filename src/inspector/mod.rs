@@ -9,8 +9,10 @@ use crate::theme::Theme;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorResolvedEditor {
     Number(InspectorNumberAdapter),
+    String(InspectorStringAdapter),
     Bool(InspectorBoolAdapter),
     Choice(InspectorChoiceAdapter),
+    Color(InspectorColorAdapter),
     Val(InspectorValAdapter),
     Vec2(InspectorVec2Adapter),
 }
@@ -20,6 +22,11 @@ pub enum InspectorNumberAdapter {
     F32,
     Rot2Degrees,
     UiRectAll,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InspectorStringAdapter {
+    Text,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -45,10 +52,17 @@ pub enum InspectorChoiceAdapter {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InspectorColorAdapter {
+    Color,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorDriverKey {
     Number,
+    String,
     Bool,
     Choice,
+    Color,
     Val,
     Vec2,
 }
@@ -57,8 +71,10 @@ impl InspectorResolvedEditor {
     pub fn driver_key(self) -> InspectorDriverKey {
         match self {
             InspectorResolvedEditor::Number(_) => InspectorDriverKey::Number,
+            InspectorResolvedEditor::String(_) => InspectorDriverKey::String,
             InspectorResolvedEditor::Bool(_) => InspectorDriverKey::Bool,
             InspectorResolvedEditor::Choice(_) => InspectorDriverKey::Choice,
+            InspectorResolvedEditor::Color(_) => InspectorDriverKey::Color,
             InspectorResolvedEditor::Val(_) => InspectorDriverKey::Val,
             InspectorResolvedEditor::Vec2(_) => InspectorDriverKey::Vec2,
         }
@@ -174,14 +190,16 @@ impl Default for InspectorEditorRegistry {
         registry.register_type_editor::<f32>(InspectorResolvedEditor::Number(
             InspectorNumberAdapter::F32,
         ));
-        registry.register_type_editor::<Val>(InspectorResolvedEditor::Val(
-            InspectorValAdapter::Val,
+        registry.register_type_editor::<String>(InspectorResolvedEditor::String(
+            InspectorStringAdapter::Text,
         ));
+        registry
+            .register_type_editor::<Val>(InspectorResolvedEditor::Val(InspectorValAdapter::Val));
         registry.register_type_editor::<bool>(InspectorResolvedEditor::Bool(
             InspectorBoolAdapter::Bool,
         ));
-        registry.register_type_editor::<Color>(InspectorResolvedEditor::Choice(
-            InspectorChoiceAdapter::ColorPreset,
+        registry.register_type_editor::<Color>(InspectorResolvedEditor::Color(
+            InspectorColorAdapter::Color,
         ));
         registry.register_type_editor::<Vec2>(InspectorResolvedEditor::Vec2(
             InspectorVec2Adapter::Vec2,
@@ -222,23 +240,29 @@ impl InspectorEditorRegistry {
             };
             let field_metadata = metadata.get(name);
             if let Some(header) = field_metadata.and_then(|value| value.header.as_ref()) {
-                entries.push(InspectorEntryDescriptor::Header(InspectorHeaderDescriptor {
-                    title: header.title.clone(),
-                    default_open: header.default_open,
-                    implicit_close_previous: true,
-                }));
+                entries.push(InspectorEntryDescriptor::Header(
+                    InspectorHeaderDescriptor {
+                        title: header.title.clone(),
+                        default_open: header.default_open,
+                        implicit_close_previous: true,
+                    },
+                ));
             }
 
             let label = field_metadata
                 .and_then(|value| value.label.clone())
                 .unwrap_or_else(|| humanize_field_name(name));
-            entries.extend(self.resolve_field_entries(
-                name,
-                &label,
-                field,
-                field_metadata,
-                field_metadata.and_then(|value| value.header.as_ref()).is_none(),
-            ));
+            entries.extend(
+                self.resolve_field_entries(
+                    name,
+                    &label,
+                    field,
+                    field_metadata,
+                    field_metadata
+                        .and_then(|value| value.header.as_ref())
+                        .is_none(),
+                ),
+            );
 
             if field_metadata.is_some_and(|value| value.end_header) {
                 entries.push(InspectorEntryDescriptor::EndHeader);
@@ -279,11 +303,13 @@ impl InspectorEditorRegistry {
 
         let mut entries = Vec::new();
         if auto_group_struct {
-            entries.push(InspectorEntryDescriptor::Header(InspectorHeaderDescriptor {
-                title: label.to_owned(),
-                default_open: false,
-                implicit_close_previous: false,
-            }));
+            entries.push(InspectorEntryDescriptor::Header(
+                InspectorHeaderDescriptor {
+                    title: label.to_owned(),
+                    default_open: false,
+                    implicit_close_previous: false,
+                },
+            ));
         }
         for index in 0..value.field_len() {
             let Some(child_name) = value.name_at(index) else {
@@ -340,6 +366,9 @@ pub trait ShowInInspector {
 pub fn editor_from_key(key: &str) -> Option<InspectorResolvedEditor> {
     match key {
         "f32" => Some(InspectorResolvedEditor::Number(InspectorNumberAdapter::F32)),
+        "string" | "text" => Some(InspectorResolvedEditor::String(
+            InspectorStringAdapter::Text,
+        )),
         "val_px" | "val" => Some(InspectorResolvedEditor::Val(InspectorValAdapter::Val)),
         "ui_rect_all" => Some(InspectorResolvedEditor::Number(
             InspectorNumberAdapter::UiRectAll,
@@ -351,11 +380,49 @@ pub fn editor_from_key(key: &str) -> Option<InspectorResolvedEditor> {
         "unit_enum" => Some(InspectorResolvedEditor::Choice(
             InspectorChoiceAdapter::UnitEnum,
         )),
-        "color_preset" => Some(InspectorResolvedEditor::Choice(
-            InspectorChoiceAdapter::ColorPreset,
-        )),
+        "color_preset" | "color" => {
+            Some(InspectorResolvedEditor::Color(InspectorColorAdapter::Color))
+        }
         _ => None,
     }
+}
+
+pub fn read_string_field(
+    _adapter: InspectorStringAdapter,
+    field: &dyn PartialReflect,
+) -> Option<String> {
+    field.try_downcast_ref::<String>().cloned()
+}
+
+pub fn write_string_field(
+    _adapter: InspectorStringAdapter,
+    field: &mut dyn PartialReflect,
+    value: String,
+) -> bool {
+    let Some(target) = field.try_downcast_mut::<String>() else {
+        return false;
+    };
+    *target = value;
+    true
+}
+
+pub fn read_color_field(
+    _adapter: InspectorColorAdapter,
+    field: &dyn PartialReflect,
+) -> Option<Color> {
+    field.try_downcast_ref::<Color>().copied()
+}
+
+pub fn write_color_field(
+    _adapter: InspectorColorAdapter,
+    field: &mut dyn PartialReflect,
+    color: Color,
+) -> bool {
+    let Some(target) = field.try_downcast_mut::<Color>() else {
+        return false;
+    };
+    *target = color;
+    true
 }
 
 pub fn read_number_field(
@@ -364,9 +431,7 @@ pub fn read_number_field(
 ) -> Option<f32> {
     match adapter {
         InspectorNumberAdapter::F32 => field.try_downcast_ref::<f32>().copied(),
-        InspectorNumberAdapter::Rot2Degrees => {
-            Some(field.try_downcast_ref::<Rot2>()?.as_degrees())
-        }
+        InspectorNumberAdapter::Rot2Degrees => Some(field.try_downcast_ref::<Rot2>()?.as_degrees()),
         InspectorNumberAdapter::UiRectAll => rect_uniform_px(*field.try_downcast_ref::<UiRect>()?),
     }
 }
@@ -489,10 +554,7 @@ pub fn write_val_unit_field(
     true
 }
 
-pub fn read_vec2_field(
-    _adapter: InspectorVec2Adapter,
-    field: &dyn PartialReflect,
-) -> Option<Vec2> {
+pub fn read_vec2_field(_adapter: InspectorVec2Adapter, field: &dyn PartialReflect) -> Option<Vec2> {
     field.try_downcast_ref::<Vec2>().copied()
 }
 
@@ -547,6 +609,45 @@ pub fn read_reflect_path_mut<'a>(
 
     let segments = path.split('.').collect::<Vec<_>>();
     descend(value, &segments)
+}
+
+pub fn reflect_path_differs_from_default(
+    value: &dyn PartialReflect,
+    default_value: &dyn PartialReflect,
+    path: &str,
+) -> bool {
+    let Some(current) = read_reflect_path(value, path) else {
+        return false;
+    };
+    let Some(default_field) = read_reflect_path(default_value, path) else {
+        return false;
+    };
+    !current.reflect_partial_eq(default_field).unwrap_or(false)
+}
+
+pub fn collect_non_default_serialized_fields(
+    value: &dyn PartialReflect,
+    default_value: &dyn PartialReflect,
+    entries: &[InspectorEntryDescriptor],
+    theme: Option<&Theme>,
+) -> HashMap<String, String> {
+    let mut result = HashMap::default();
+    for entry in entries {
+        let InspectorEntryDescriptor::Field(field) = entry else {
+            continue;
+        };
+        if !reflect_path_differs_from_default(value, default_value, &field.field_path) {
+            continue;
+        }
+        let Some(current) = read_reflect_path(value, &field.field_path) else {
+            continue;
+        };
+        let Some(serialized) = serialize_editor_value(field.editor, current, theme) else {
+            continue;
+        };
+        result.insert(field.field_path.clone(), serialized);
+    }
+    result
 }
 
 pub fn read_bool_field(adapter: InspectorBoolAdapter, field: &dyn PartialReflect) -> Option<bool> {
@@ -661,6 +762,137 @@ pub fn write_choice_field(
             let index = selected.min(presets.len().saturating_sub(1));
             *target = presets[index].1;
             true
+        }
+    }
+}
+
+pub fn serialize_editor_value(
+    editor: InspectorResolvedEditor,
+    field: &dyn PartialReflect,
+    theme: Option<&Theme>,
+) -> Option<String> {
+    match editor {
+        InspectorResolvedEditor::Number(adapter) => {
+            Some(read_number_field(adapter, field)?.to_string())
+        }
+        InspectorResolvedEditor::String(adapter) => read_string_field(adapter, field),
+        InspectorResolvedEditor::Bool(adapter) => {
+            Some(read_bool_field(adapter, field)?.to_string())
+        }
+        InspectorResolvedEditor::Choice(adapter) => {
+            let (options, selected) = read_choice_field(adapter, field, theme)?;
+            options.get(selected).cloned()
+        }
+        InspectorResolvedEditor::Color(adapter) => {
+            let color = read_color_field(adapter, field)?.to_srgba();
+            Some(format!(
+                "{},{},{},{}",
+                color.red, color.green, color.blue, color.alpha
+            ))
+        }
+        InspectorResolvedEditor::Val(_adapter) => {
+            let value = field.try_downcast_ref::<Val>()?;
+            Some(match value {
+                Val::Auto => "Auto".to_owned(),
+                Val::Px(v) => format!("Px:{v}"),
+                Val::Percent(v) => format!("Percent:{v}"),
+                Val::Vw(v) => format!("Vw:{v}"),
+                Val::Vh(v) => format!("Vh:{v}"),
+                Val::VMin(v) => format!("VMin:{v}"),
+                Val::VMax(v) => format!("VMax:{v}"),
+            })
+        }
+        InspectorResolvedEditor::Vec2(adapter) => {
+            let value = read_vec2_field(adapter, field)?;
+            Some(format!("{},{}", value.x, value.y))
+        }
+    }
+}
+
+pub fn apply_serialized_editor_value(
+    editor: InspectorResolvedEditor,
+    field: &mut dyn PartialReflect,
+    raw: &str,
+    numeric_min: Option<f32>,
+    theme: Option<&Theme>,
+) -> bool {
+    match editor {
+        InspectorResolvedEditor::Number(adapter) => raw
+            .parse::<f32>()
+            .ok()
+            .is_some_and(|value| write_number_field(adapter, field, value, numeric_min)),
+        InspectorResolvedEditor::String(adapter) => {
+            write_string_field(adapter, field, raw.to_owned())
+        }
+        InspectorResolvedEditor::Bool(adapter) => raw
+            .parse::<bool>()
+            .ok()
+            .is_some_and(|checked| write_bool_field(adapter, field, checked)),
+        InspectorResolvedEditor::Choice(adapter) => {
+            let Some((options, _)) = read_choice_field(adapter, field, theme) else {
+                return false;
+            };
+            let Some(selected) = options.iter().position(|option| option == raw) else {
+                return false;
+            };
+            write_choice_field(adapter, field, selected, theme)
+        }
+        InspectorResolvedEditor::Color(adapter) => {
+            let parts = raw.split(',').collect::<Vec<_>>();
+            if parts.len() != 4 {
+                return false;
+            }
+            let Ok(r) = parts[0].parse::<f32>() else {
+                return false;
+            };
+            let Ok(g) = parts[1].parse::<f32>() else {
+                return false;
+            };
+            let Ok(b) = parts[2].parse::<f32>() else {
+                return false;
+            };
+            let Ok(a) = parts[3].parse::<f32>() else {
+                return false;
+            };
+            write_color_field(adapter, field, Color::srgba(r, g, b, a))
+        }
+        InspectorResolvedEditor::Val(adapter) => {
+            let Some(target) = field.try_downcast_mut::<Val>() else {
+                return false;
+            };
+            if raw == "Auto" {
+                *target = Val::Auto;
+                return true;
+            }
+            let Some((unit, value)) = raw.split_once(':') else {
+                return false;
+            };
+            let Ok(value) = value.parse::<f32>() else {
+                return false;
+            };
+            *target = match unit {
+                "Px" => Val::Px(value),
+                "Percent" => Val::Percent(value),
+                "Vw" => Val::Vw(value),
+                "Vh" => Val::Vh(value),
+                "VMin" => Val::VMin(value),
+                "VMax" => Val::VMax(value),
+                _ => return false,
+            };
+            if let Some(min) = numeric_min {
+                let _ = write_val_number_field(adapter, field, value, Some(min));
+            }
+            true
+        }
+        InspectorResolvedEditor::Vec2(adapter) => {
+            let Some((x, y)) = raw.split_once(',') else {
+                return false;
+            };
+            let (Ok(x), Ok(y)) = (x.parse::<f32>(), y.parse::<f32>()) else {
+                return false;
+            };
+            write_vec2_axis_field(adapter, field, 0, x)
+                && write_vec2_axis_field(adapter, field, 1, y)
         }
     }
 }

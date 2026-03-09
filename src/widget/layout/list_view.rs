@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_vista_macros::ShowInInspector;
 
 use crate::theme::Theme;
 
@@ -10,12 +11,15 @@ impl Plugin for ListViewPlugin {
     fn build(&self, _app: &mut App) {}
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("layout/list_view")]
 #[builder(ListViewBuilder)]
 pub struct ListView {
+    #[property(label = "Direction")]
     pub direction: FlexDirection,
+    #[property(label = "Item Gap", min = 0.0)]
     pub item_gap: f32,
+    #[property(label = "Selectable")]
     pub selectable: bool,
 }
 

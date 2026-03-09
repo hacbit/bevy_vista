@@ -32,12 +32,16 @@ pub struct EditorTheme(pub Theme);
 impl Default for EditorTheme {
     fn default() -> Self {
         Self(Theme::generate(
-            ThemeSeed::new("Vista Editor", Color::srgb(0.32, 0.55, 0.78), ThemeMode::Dark)
-                .with_secondary(Color::srgb(0.22, 0.68, 0.76))
-                .with_neutral(Color::srgb(0.22, 0.24, 0.28))
-                .with_description("A compact slate editor theme for Vista.")
-                .with_base_font_size(13.0)
-                .with_type_scale(1.10),
+            ThemeSeed::new(
+                "Vista Editor",
+                Color::srgb(0.32, 0.55, 0.78),
+                ThemeMode::Dark,
+            )
+            .with_secondary(Color::srgb(0.22, 0.68, 0.76))
+            .with_neutral(Color::srgb(0.22, 0.24, 0.28))
+            .with_description("A compact slate editor theme for Vista.")
+            .with_base_font_size(13.0)
+            .with_type_scale(1.10),
         ))
     }
 }

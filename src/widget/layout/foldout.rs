@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_vista_macros::ShowInInspector;
 
 use crate::{
     icons::{Icons, IconsManager},
@@ -15,10 +16,11 @@ impl Plugin for FoldoutPlugin {
     }
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("layout/foldout")]
 #[builder(FoldoutBuilder)]
 pub struct Foldout {
+    #[property(label = "Expanded")]
     pub expanded: bool,
 }
 
@@ -140,7 +142,6 @@ impl FoldoutBuilder {
 
         let root = commands
             .spawn((
-                Name::new("Foldout"),
                 Node {
                     width: self.width,
                     flex_direction: FlexDirection::Column,

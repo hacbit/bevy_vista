@@ -2,6 +2,7 @@ use bevy::{
     prelude::*,
     window::{CursorIcon, PrimaryWindow, SystemCursorIcon},
 };
+use bevy_vista_macros::ShowInInspector;
 
 use crate::theme::{Theme, ThemeBoundary, ThemeScope, resolve_theme_or_global};
 
@@ -43,15 +44,21 @@ impl SplitViewAxis {
     }
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("layout/split_view")]
 #[builder(SplitViewBuilder)]
 pub struct SplitView {
+    #[property(label = "Axis")]
     pub axis: SplitViewAxis,
+    #[property(label = "First Size")]
     pub default_first_size: Val,
+    #[property(label = "Divider Size", min = 1.0)]
     pub divider_size: Val,
+    #[property(label = "Min First", min = 0.0)]
     pub min_first_size: Val,
+    #[property(label = "Min Second", min = 0.0)]
     pub min_second_size: Val,
+    #[property(label = "Draggable")]
     pub draggable: bool,
 }
 
@@ -181,7 +188,6 @@ impl SplitViewBuilder {
 
         commands
             .spawn((
-                Name::new("Split View"),
                 Node {
                     width: self.width,
                     height: self.height,

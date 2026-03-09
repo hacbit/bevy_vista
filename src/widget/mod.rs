@@ -16,6 +16,10 @@ use bevy::{camera::visibility::Visibility, platform::collections::HashMap};
 use bevy_vista_macros::{ShowInInspector, Widget};
 
 use crate as bevy_vista;
+use crate::inspector::{
+    InspectorEditorRegistry, InspectorEntryDescriptor, ShowInInspector as ShowInInspectorTrait,
+    apply_serialized_editor_value,
+};
 
 pub mod common;
 pub use common::*;
@@ -31,10 +35,13 @@ impl PluginGroup for DefaultUiWidgetsPlugins {
         PluginGroupBuilder::start::<Self>()
             // common
             .add(ButtonWidgetPlugin)
+            .add(LabelWidgetPlugin)
+            .add(ImageWidgetPlugin)
             // input
             .add(TextFieldPlugin)
             .add(NumericFieldsPlugin)
             .add(CheckboxPlugin)
+            .add(ColorFieldPlugin)
             .add(DropdownPlugin)
             // layout
             .add(FoldoutPlugin)
@@ -107,6 +114,19 @@ impl WidgetRegistry {
 
     fn register_widgets(&mut self) {
         __macro_exports::register_widgets(self);
+        self.enable_inspector::<common::button::ButtonWidget>();
+        self.enable_inspector::<common::image::ImageWidget>();
+        self.enable_inspector::<common::label::LabelWidget>();
+        self.enable_inspector::<input::checkbox::Checkbox>();
+        self.enable_inspector::<input::color_field::ColorField>();
+        self.enable_inspector::<input::dropdown::Dropdown>();
+        self.enable_inspector::<input::text_field::TextField>();
+        self.enable_inspector::<layout::divider::Divider>();
+        self.enable_inspector::<layout::foldout::Foldout>();
+        self.enable_inspector::<layout::list_view::ListView>();
+        self.enable_inspector::<layout::scroll_view::ScrollView>();
+        self.enable_inspector::<layout::split_view::SplitView>();
+        self.enable_inspector::<layout::tree_view::TreeView>();
     }
 
     pub fn register<T>(&mut self)
@@ -116,6 +136,19 @@ impl WidgetRegistry {
         if self.register_internal(TypeId::of::<T>(), T::get_widget_registration) {
             T::register_widget_dependencies(self);
         }
+    }
+
+    pub fn enable_inspector<T>(&mut self)
+    where
+        T: Widget + Component + Reflect + Default + Clone + ShowInInspectorTrait + 'static,
+    {
+        let type_id = TypeId::of::<T>();
+        let Some(registration) = self.registrations.get_mut(&type_id) else {
+            return;
+        };
+        registration.inspector_entries_fn = Some(widget_inspector_entries::<T>);
+        registration.default_inspector_value_fn = Some(default_widget_inspector_value::<T>);
+        registration.apply_props_fn = Some(apply_widget_props::<T>);
     }
 
     fn register_internal(
@@ -177,6 +210,17 @@ pub struct WidgetRegistration {
     name: &'static str,
     type_id: TypeId,
     spawn_default_fn: fn(&mut Commands, Option<&crate::theme::Theme>) -> Entity,
+    inspector_entries_fn: Option<fn(&InspectorEditorRegistry) -> Vec<InspectorEntryDescriptor>>,
+    default_inspector_value_fn: Option<fn() -> Box<dyn bevy::reflect::PartialReflect>>,
+    apply_props_fn: Option<
+        fn(
+            &mut Commands,
+            Entity,
+            &HashMap<String, String>,
+            &InspectorEditorRegistry,
+            Option<&crate::theme::Theme>,
+        ),
+    >,
 }
 
 impl WidgetRegistration {
@@ -190,6 +234,25 @@ impl WidgetRegistration {
             name,
             type_id: TypeId::of::<T>(),
             spawn_default_fn: B::spawn_default,
+            inspector_entries_fn: None,
+            default_inspector_value_fn: None,
+            apply_props_fn: None,
+        }
+    }
+
+    pub fn of_with_inspector<T, B>(category: &'static str, name: &'static str) -> Self
+    where
+        T: Widget + Component + Reflect + Default + Clone + ShowInInspectorTrait + 'static,
+        B: DefaultWidgetBuilder + 'static,
+    {
+        Self {
+            category,
+            name,
+            type_id: TypeId::of::<T>(),
+            spawn_default_fn: B::spawn_default,
+            inspector_entries_fn: Some(widget_inspector_entries::<T>),
+            default_inspector_value_fn: Some(default_widget_inspector_value::<T>),
+            apply_props_fn: Some(apply_widget_props::<T>),
         }
     }
 
@@ -215,6 +278,32 @@ impl WidgetRegistration {
         theme: Option<&crate::theme::Theme>,
     ) -> Entity {
         (self.spawn_default_fn)(commands, theme)
+    }
+
+    pub fn inspector_entries(
+        &self,
+        registry: &InspectorEditorRegistry,
+    ) -> Vec<InspectorEntryDescriptor> {
+        self.inspector_entries_fn
+            .map(|f| f(registry))
+            .unwrap_or_default()
+    }
+
+    pub fn apply_props(
+        &self,
+        commands: &mut Commands,
+        entity: Entity,
+        props: &HashMap<String, String>,
+        registry: &InspectorEditorRegistry,
+        theme: Option<&crate::theme::Theme>,
+    ) {
+        if let Some(apply) = self.apply_props_fn {
+            apply(commands, entity, props, registry, theme);
+        }
+    }
+
+    pub fn default_inspector_value(&self) -> Option<Box<dyn bevy::reflect::PartialReflect>> {
+        self.default_inspector_value_fn.map(|f| f())
     }
 }
 
@@ -353,13 +442,13 @@ pub struct WidgetStyle {
     pub flex_wrap: FlexWrap,
 
     // alignment
-    #[property(header = "Alignment", label = "Align")]
+    #[property(header = "Alignment")]
     pub align_items: AlignItems,
     pub justify_items: JustifyItems,
     pub align_self: AlignSelf,
     pub justify_self: JustifySelf,
     pub align_content: AlignContent,
-    #[property(label = "Justify", end_header)]
+    #[property(end_header)]
     pub justify_content: JustifyContent,
 
     // size
@@ -384,7 +473,7 @@ pub struct WidgetStyle {
     pub padding: UiRect,
 
     // background
-    #[property(header = "Appearance", label = "Background", editor = "color_preset")]
+    #[property(header = "Appearance")]
     pub background_color: Color,
 
     // border
@@ -449,16 +538,82 @@ impl WidgetStyle {
 
 pub fn spawn_blueprint_widget_content(
     registry: &WidgetRegistry,
+    inspector_registry: &InspectorEditorRegistry,
     commands: &mut Commands,
     widget_path: &str,
     style: &WidgetStyle,
+    props: &HashMap<String, String>,
     theme: Option<&crate::theme::Theme>,
 ) -> Option<Entity> {
-    let content = registry.spawn_default_widget(widget_path, commands, theme)?;
+    let registration = registry.get_widget_by_path(widget_path)?;
+    let content = registration.spawn_default(commands, theme);
+    registration.apply_props(commands, content, props, inspector_registry, theme);
     if style != &WidgetStyle::default() {
         style.apply_to_entity(commands, content);
     }
     Some(content)
+}
+
+fn widget_inspector_entries<T>(registry: &InspectorEditorRegistry) -> Vec<InspectorEntryDescriptor>
+where
+    T: Reflect + Default + ShowInInspectorTrait + 'static,
+{
+    registry.entries_for::<T>()
+}
+
+fn default_widget_inspector_value<T>() -> Box<dyn bevy::reflect::PartialReflect>
+where
+    T: Reflect + Default + 'static,
+{
+    Box::new(T::default())
+}
+
+fn apply_widget_props<T>(
+    commands: &mut Commands,
+    entity: Entity,
+    props: &HashMap<String, String>,
+    registry: &InspectorEditorRegistry,
+    theme: Option<&crate::theme::Theme>,
+) where
+    T: Component + Reflect + Default + Clone + ShowInInspectorTrait + 'static,
+{
+    let mut value = T::default();
+    let entries = registry.entries_for::<T>();
+    let reflect: &mut dyn bevy::reflect::PartialReflect = &mut value;
+    for entry in entries {
+        let InspectorEntryDescriptor::Field(field) = entry else {
+            continue;
+        };
+        let Some(raw) = props.get(&field.field_path) else {
+            continue;
+        };
+        let Some(target) = crate::inspector::read_reflect_path_mut(reflect, &field.field_path)
+        else {
+            continue;
+        };
+        let _ = apply_serialized_editor_value(field.editor, target, raw, field.numeric_min, theme);
+    }
+    commands.entity(entity).insert(value);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn widget_registration_exposes_button_inspector_entries() {
+        let widget_registry = WidgetRegistry::new();
+        let inspector_registry = InspectorEditorRegistry::default();
+        let registration = widget_registry
+            .get_widget_by_path("common/button")
+            .expect("button registration should exist");
+        assert!(
+            !registration
+                .inspector_entries(&inspector_registry)
+                .is_empty(),
+            "button widget should expose inspector entries"
+        );
+    }
 }
 
 // pub struct TextStyle {

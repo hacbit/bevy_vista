@@ -1,11 +1,24 @@
 use super::*;
+use bevy::app::PostUpdate;
+use bevy::prelude::Component;
+use bevy_vista_macros::ShowInInspector;
 
-#[derive(Widget, Reflect, Clone, Debug)]
+pub struct LabelWidgetPlugin;
+
+impl Plugin for LabelWidgetPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(PostUpdate, sync_label_widgets);
+    }
+}
+
+#[derive(Widget, Reflect, Component, Clone, Debug, ShowInInspector)]
 #[widget("common/label")]
 #[builder(LabelBuilder)]
 pub struct LabelWidget {
     pub text: String,
+    #[property(label = "Font Size", min = 1.0)]
     pub font_size: f32,
+    #[property(label = "Color")]
     pub color: Color,
 }
 
@@ -53,15 +66,16 @@ impl LabelBuilder {
     }
 
     pub fn build(self) -> impl Bundle {
+        let widget = self.widget;
         (
-            // Name::new("Label"),
+            widget.clone(),
             Label,
-            Text(self.widget.text),
+            Text(widget.text),
             TextFont {
-                font_size: self.widget.font_size,
+                font_size: widget.font_size,
                 ..default()
             },
-            TextColor(self.widget.color),
+            TextColor(widget.color),
         )
     }
 }
@@ -69,5 +83,24 @@ impl LabelBuilder {
 impl DefaultWidgetBuilder for LabelBuilder {
     fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
         commands.spawn(LabelBuilder::new().build()).id()
+    }
+}
+
+fn sync_label_widgets(
+    mut query: Query<
+        (&LabelWidget, &mut Text, &mut TextFont, &mut TextColor),
+        Changed<LabelWidget>,
+    >,
+) {
+    for (widget, mut text, mut font, mut color) in query.iter_mut() {
+        if text.0 != widget.text {
+            text.0 = widget.text.clone();
+        }
+        if font.font_size != widget.font_size {
+            font.font_size = widget.font_size;
+        }
+        if color.0 != widget.color {
+            color.0 = widget.color;
+        }
     }
 }

@@ -1,6 +1,7 @@
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
+use crate::inspector::InspectorEditorRegistry;
 use crate::widget::{WidgetRegistry, WidgetStyle, spawn_blueprint_widget_content};
 
 use super::*;
@@ -48,7 +49,7 @@ impl Default for WidgetSchemaRegistry {
             },
         );
         schemas.insert(
-            "common/text".to_owned(),
+            "common/label".to_owned(),
             WidgetSchema {
                 child_rule: BlueprintChildRule::Exact(0),
             },
@@ -121,6 +122,20 @@ impl WidgetBlueprintDocument {
         self.next_id = self.next_id.saturating_add(1);
         id
     }
+
+    pub fn from_parts(
+        roots: Vec<BlueprintNodeId>,
+        nodes: HashMap<BlueprintNodeId, WidgetBlueprintNode>,
+    ) -> Self {
+        let next_id = nodes.keys().copied().max().unwrap_or(0).saturating_add(1);
+        Self {
+            roots,
+            nodes,
+            next_id,
+            dirty: true,
+            pending_select: None,
+        }
+    }
 }
 
 pub enum BlueprintCommand {
@@ -151,6 +166,10 @@ pub enum BlueprintCommand {
         node: BlueprintNodeId,
         key: String,
         value: String,
+    },
+    RemoveNodeProp {
+        node: BlueprintNodeId,
+        key: String,
     },
 }
 
@@ -381,6 +400,15 @@ pub fn apply_blueprint_command(
             document.pending_select = Some(node);
             Ok(node)
         }
+        BlueprintCommand::RemoveNodeProp { node, key } => {
+            let Some(node_data) = document.nodes.get_mut(&node) else {
+                return Err(BlueprintCommandError::NodeNotFound(node));
+            };
+            node_data.props.remove(&key);
+            document.dirty = true;
+            document.pending_select = Some(node);
+            Ok(node)
+        }
     }
 }
 
@@ -439,6 +467,7 @@ pub struct BlueprintRuntimeMap {
 pub(super) fn compile_blueprint_document(
     mut commands: Commands,
     widget_registry: Res<WidgetRegistry>,
+    inspector_registry: Res<InspectorEditorRegistry>,
     viewport_theme: Res<ViewportThemeState>,
     elements_container: Single<Entity, With<viewport::ElementsContainer>>,
     container_children: Query<&Children>,
@@ -467,6 +496,7 @@ pub(super) fn compile_blueprint_document(
             &document,
             &mut runtime_map,
             &widget_registry,
+            &inspector_registry,
             viewport_theme.active_theme(),
             *elements_container,
             root_id,
@@ -520,6 +550,7 @@ fn compile_node_recursive(
     document: &WidgetBlueprintDocument,
     runtime_map: &mut BlueprintRuntimeMap,
     widget_registry: &WidgetRegistry,
+    inspector_registry: &InspectorEditorRegistry,
     theme: Option<&Theme>,
     parent: Entity,
     node_id: BlueprintNodeId,
@@ -529,9 +560,11 @@ fn compile_node_recursive(
     };
     let Some(content) = spawn_blueprint_widget_content(
         widget_registry,
+        inspector_registry,
         commands,
         &node.widget_path,
         &node.style,
+        &node.props,
         theme,
     ) else {
         return;
@@ -549,6 +582,7 @@ fn compile_node_recursive(
             document,
             runtime_map,
             widget_registry,
+            inspector_registry,
             theme,
             entity,
             child,

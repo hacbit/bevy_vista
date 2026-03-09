@@ -6,11 +6,8 @@ pub use node::{NodeBuilder, NodeWidget};
 pub mod button;
 pub use button::{ButtonBuilder, ButtonWidget, ButtonWidgetPlugin};
 
-pub mod text;
-pub use text::{TextBuilder, TextWidget};
-
 pub mod label;
-pub use label::{LabelBuilder, LabelWidget};
+pub use label::{LabelBuilder, LabelWidget, LabelWidgetPlugin};
 
 pub mod image;
-pub use image::{ImageBuilder, ImageWidget};
+pub use image::{ImageBuilder, ImageWidget, ImageWidgetPlugin};

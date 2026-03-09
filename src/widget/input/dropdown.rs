@@ -1,5 +1,6 @@
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy_vista_macros::ShowInInspector;
 
 use crate::{
     icons::{Icons, IconsManager},
@@ -37,17 +38,24 @@ impl Plugin for DropdownPlugin {
     }
 }
 
-#[derive(Component, Reflect, Clone, Widget)]
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("input/dropdown")]
 #[builder(DropdownBuilder)]
 pub struct Dropdown {
+    #[property(hidden)]
     pub options: Vec<String>,
+    #[property(hidden)]
     pub selected: usize,
+    #[property(hidden)]
     pub expanded: bool,
+    #[property(label = "Disabled")]
     pub disabled: bool,
-    pub max_visible_items: usize,
+    #[property(label = "Max Popup Width", min = 120.0)]
     pub max_popup_width: f32,
+    #[property(label = "Font Size", min = 1.0)]
     pub font_size: f32,
+    #[property(hidden)]
+    pub max_visible_items: usize,
 }
 
 impl Default for Dropdown {
@@ -180,7 +188,6 @@ impl DropdownBuilder {
 
         let root = commands
             .spawn((
-                Name::new("Dropdown"),
                 Node {
                     width: self.width,
                     flex_direction: FlexDirection::Column,

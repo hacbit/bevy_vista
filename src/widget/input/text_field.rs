@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy::text::TextLayoutInfo;
 use bevy::ui::{ComputedNode, RelativeCursorPosition};
 use bevy::window::{Ime, PrimaryWindow};
-use bevy_vista_macros::Widget;
+use bevy_vista_macros::{ShowInInspector, Widget};
 
 use crate as bevy_vista;
 use crate::theme::{Theme, ThemeBoundary, ThemeScope, resolve_theme_or_global};
@@ -38,22 +38,35 @@ impl Plugin for TextFieldPlugin {
     }
 }
 
-#[derive(Component, Default, Reflect, Widget)]
+#[derive(Component, Default, Reflect, Clone, Widget, ShowInInspector)]
 #[widget("input/text_field")]
 #[builder(TextFieldBuilder)]
 pub struct TextField {
+    #[property(hidden)]
     pub value: String,
+    #[property(hidden)]
     pub placeholder: String,
+    #[property(hidden)]
     pub max_length: Option<usize>,
+    #[property(hidden)]
     pub validator: Option<TextInputValidator>,
+    #[property(hidden)]
     pub formatter: Option<TextInputFormatter>,
+    #[property(hidden)]
     pub cursor_pos: usize,
+    #[property(hidden)]
     pub selection: Option<(usize, usize)>,
+    #[property(hidden)]
     pub drag_anchor: Option<usize>,
+    #[property(label = "Disabled")]
     pub disabled: bool,
+    #[property(label = "Input Type")]
     pub input_type: TextInputType,
+    #[property(label = "Layout Mode")]
     pub layout_mode: TextFieldLayoutMode,
+    #[property(label = "Min Width", min = 0.0)]
     pub min_width: f32,
+    #[property(label = "Min Height", min = 0.0)]
     pub min_height: f32,
 }
 
@@ -66,7 +79,7 @@ struct TextFieldInputText;
 #[derive(Component)]
 struct TextFieldSelectionHighlight;
 
-#[derive(Reflect)]
+#[derive(Reflect, Clone)]
 pub enum TextInputValidator {
     Any,
     Numeric,
@@ -75,7 +88,7 @@ pub enum TextInputValidator {
     Email,
 }
 
-#[derive(Reflect)]
+#[derive(Reflect, Clone)]
 pub enum TextInputFormatter {
     Uppercase,
     Lowercase,
@@ -83,7 +96,7 @@ pub enum TextInputFormatter {
     Trim,
 }
 
-#[derive(Reflect, Default)]
+#[derive(Reflect, Default, Clone)]
 pub enum TextInputType {
     #[default]
     SingleLine,
@@ -281,7 +294,6 @@ impl TextFieldBuilder {
                     ..default()
                 },
                 Interaction::default(),
-                Name::new("Text Field"),
             ))
             .id();
 

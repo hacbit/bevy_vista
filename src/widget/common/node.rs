@@ -65,7 +65,6 @@ impl NodeBuilder {
 
     pub fn build(self) -> impl Bundle {
         (
-            Name::new("Node"),
             Node {
                 width: self.width,
                 height: self.height,
