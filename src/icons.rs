@@ -10,7 +10,7 @@ pub struct EditorIconsPlugin;
 
 impl Plugin for EditorIconsPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.init_resource::<IconsManager>();
+        app.init_resource::<IconsManager>().register_type::<Icons>();
     }
 }
 
@@ -96,4 +96,31 @@ fn decode_b64_image(image_str: &str) -> Result<Vec<u8>, String> {
     STANDARD
         .decode(image_str)
         .map_err(|e| format!("base64 decode error: {}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use bevy::reflect::Typed;
+
+    use super::*;
+
+    #[test]
+    fn reflected_variants_cover_all_icons() {
+        let reflected = Icons::reflected_variants();
+
+        let bevy::reflect::TypeInfo::Enum(enum_info) = Icons::type_info() else {
+            panic!("Icons should be a reflected enum");
+        };
+
+        assert_eq!(reflected.len(), enum_info.variant_len());
+        assert!(reflected.contains(&("ArrowLeft", Icons::ArrowLeft)));
+
+        let unique_names = reflected
+            .iter()
+            .map(|(name, _)| *name)
+            .collect::<HashSet<_>>();
+        assert_eq!(unique_names.len(), reflected.len());
+    }
 }

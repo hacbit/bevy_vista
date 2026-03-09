@@ -31,9 +31,9 @@ pub fn generate_icons_impl(input: TokenStream) -> TokenStream {
         .iter()
         .map(|f| f.name.clone())
         .collect::<Vec<Ident>>();
-    let const_strs = fields.fields.into_iter().map(move |f| {
-        let name = f.name;
-        let data = f.str;
+    let const_strs = fields.fields.iter().map(|f| {
+        let name = &f.name;
+        let data = &f.str;
         quote! {
             const #name: &str = #data;
         }
@@ -47,6 +47,7 @@ pub fn generate_icons_impl(input: TokenStream) -> TokenStream {
 
         #( #const_strs )*
 
+        #[derive(bevy::reflect::Reflect)]
         #(#enum_meta)*
         pub enum #icons_id {
             #( #names ),*
@@ -59,6 +60,34 @@ pub fn generate_icons_impl(input: TokenStream) -> TokenStream {
                         Self::#names => #names
                     ),*
                 }
+            }
+
+            pub fn reflected_variants() -> Vec<(&'static str, Self)> {
+                let bevy::reflect::TypeInfo::Enum(enum_info) =
+                    <Self as bevy::reflect::Typed>::type_info()
+                else {
+                    return Vec::new();
+                };
+
+                enum_info
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, variant)| {
+                        if variant.variant_type() != bevy::reflect::VariantType::Unit {
+                            return None;
+                        }
+
+                        let mut dynamic = bevy::reflect::DynamicEnum::new_with_index(
+                            index,
+                            variant.name(),
+                            bevy::reflect::DynamicVariant::Unit,
+                        );
+                        dynamic.set_represented_type(Some(<Self as bevy::reflect::Typed>::type_info()));
+
+                        <Self as bevy::reflect::FromReflect>::from_reflect(&dynamic)
+                            .map(|value| (variant.name(), value))
+                    })
+                    .collect()
             }
         }
     }
@@ -103,8 +132,8 @@ impl Parse for Fields {
 
 struct Field {
     name: Ident,
-    width: LitInt,
-    height: LitInt,
+    _width: LitInt,
+    _height: LitInt,
     str: LitStr,
 }
 
@@ -112,8 +141,8 @@ impl Parse for Field {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         Ok(Self {
             name: input.parse::<Ident>()?,
-            width: input.parse::<LitInt>()?,
-            height: input.parse::<LitInt>()?,
+            _width: input.parse::<LitInt>()?,
+            _height: input.parse::<LitInt>()?,
             str: input.parse::<LitStr>()?,
         })
     }
