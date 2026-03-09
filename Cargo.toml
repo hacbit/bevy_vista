@@ -45,6 +45,10 @@ repository = "https://github.com/hacbit/bevy_vista"
 documentation = "https://docs.rs/bevy_vista"
 readme = "README.md"
 authors = ["hacbit <hacbit@foxmail.com>"]
+exclude = [
+    "assets/",
+    "crates/",
+]
 
 [lib]
 name = "bevy_vista"
