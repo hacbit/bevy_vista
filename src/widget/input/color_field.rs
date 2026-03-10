@@ -1,19 +1,6 @@
-use bevy::{
-    asset::{Asset, Handle, load_internal_asset, uuid_handle},
-    color::Hsva,
-    ecs::query::QueryFilter,
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::AsBindGroup,
-    shader::{Shader, ShaderRef},
-    ui_render::{UiMaterialPlugin, prelude::UiMaterial},
-};
-use bevy_vista_macros::ShowInInspector;
+use bevy::{asset::{load_internal_asset, uuid_handle}, ecs::query::QueryFilter, render::render_resource::AsBindGroup, shader::ShaderRef};
 
-use crate::{
-    theme::{Theme, ThemeBoundary, ThemeScope, resolve_theme_or_global},
-    widget::{GlobalPopupLayerState, PopupLayerHost, PopupLayerRoot, resolve_popup_parent},
-};
+use crate::theme::resolve_theme_or_global;
 
 use super::*;
 
@@ -109,7 +96,7 @@ impl Default for ColorFieldMode {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("input/color_field")]
+#[widget("input/color_field", children = "exact(0)")]
 #[builder(ColorFieldBuilder)]
 pub struct ColorField {
     #[property(label = "Color")]
@@ -353,8 +340,11 @@ impl ColorFieldBuilder {
 }
 
 impl DefaultWidgetBuilder for ColorFieldBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
-        ColorFieldBuilder::new().build(commands, theme)
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        ColorFieldBuilder::new().build(commands, theme).into()
     }
 }
 

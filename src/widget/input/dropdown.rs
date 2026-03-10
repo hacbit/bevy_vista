@@ -1,11 +1,6 @@
 use bevy::picking::hover::Hovered;
-use bevy::prelude::*;
-use bevy_vista_macros::ShowInInspector;
 
-use crate::{
-    icons::Icons,
-    theme::{Theme, ThemeBoundary, ThemeScope, resolve_theme_or_global},
-};
+use crate::theme::resolve_theme_or_global;
 
 use super::*;
 
@@ -38,7 +33,7 @@ impl Plugin for DropdownPlugin {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("input/dropdown")]
+#[widget("input/dropdown", children = "exact(0)")]
 #[builder(DropdownBuilder)]
 pub struct Dropdown {
     #[property(hidden)]
@@ -271,8 +266,11 @@ impl DropdownBuilder {
 }
 
 impl DefaultWidgetBuilder for DropdownBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
-        DropdownBuilder::new().build(commands, theme)
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        DropdownBuilder::new().build(commands, theme).into()
     }
 }
 

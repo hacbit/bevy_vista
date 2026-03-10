@@ -1,8 +1,3 @@
-use bevy::prelude::*;
-use bevy_vista_macros::ShowInInspector;
-
-use crate::{icons::Icons, theme::Theme};
-
 use super::*;
 
 pub struct CheckboxPlugin;
@@ -15,7 +10,7 @@ impl Plugin for CheckboxPlugin {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("input/checkbox")]
+#[widget("input/checkbox", children = "exact(0)")]
 #[builder(CheckboxBuilder)]
 pub struct Checkbox {
     #[property(label = "Checked")]
@@ -130,8 +125,11 @@ impl CheckboxBuilder {
 }
 
 impl DefaultWidgetBuilder for CheckboxBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
-        CheckboxBuilder::new().build(commands, theme)
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        CheckboxBuilder::new().build(commands, theme).into()
     }
 }
 

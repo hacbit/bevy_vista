@@ -51,6 +51,7 @@ pub struct VistaUiNodeAsset {
     pub widget_path: String,
     pub style: WidgetStyle,
     pub props: HashMap<String, String>,
+    pub slot: Option<String>,
     pub children: Vec<VistaNodeId>,
 }
 
@@ -70,6 +71,8 @@ struct SerializableVistaUiNodeAsset {
     style: SerializableVistaUiStyle,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     props: HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    slot: Option<String>,
     children: Vec<VistaNodeId>,
 }
 
@@ -214,6 +217,7 @@ impl TryFrom<&VistaUiNodeAsset> for SerializableVistaUiNodeAsset {
             widget_path: node.widget_path.clone(),
             style: SerializableVistaUiStyle::Full(serialize_widget_style(&node.style)?),
             props: node.props.clone(),
+            slot: node.slot.clone(),
             children: node.children.clone(),
         })
     }
@@ -229,6 +233,7 @@ impl TryFrom<SerializableVistaUiNodeAsset> for VistaUiNodeAsset {
             widget_path: node.widget_path,
             style: deserialize_widget_style(node.style)?,
             props: node.props,
+            slot: node.slot,
             children: node.children,
         })
     }
@@ -273,6 +278,7 @@ impl SerializableVistaUiNodeAsset {
                 inspector_registry,
             )?),
             props: serialize_widget_prop_overrides(node, widget_registry, inspector_registry)?,
+            slot: node.slot.clone(),
             children: node.children.clone(),
         })
     }
@@ -289,6 +295,7 @@ impl From<&WidgetBlueprintDocument> for VistaUiAsset {
                 widget_path: node.widget_path.clone(),
                 style: node.style.clone(),
                 props: node.props.clone(),
+                slot: node.slot.clone(),
                 children: node.children.clone(),
             })
             .collect::<Vec<_>>();
@@ -325,6 +332,7 @@ impl TryFrom<&VistaUiAsset> for WidgetBlueprintDocument {
                     style: node.style.clone(),
                     props: node.props.clone(),
                     parent: None,
+                    slot: node.slot.clone(),
                     children: node.children.clone(),
                 },
             );
@@ -431,7 +439,7 @@ fn spawn_asset_node_recursive(
     let Some(node) = document.nodes.get(&node_id) else {
         return Err(VistaUiAssetError::MissingNode(node_id));
     };
-    let Some(content) = spawn_blueprint_widget_content(
+    let Some(spawn) = spawn_blueprint_widget_content(
         widget_registry,
         inspector_registry,
         commands,
@@ -442,21 +450,42 @@ fn spawn_asset_node_recursive(
     ) else {
         return Err(VistaUiAssetError::MissingNode(node_id));
     };
-    commands.entity(parent).add_child(content);
-    node_to_entity.insert(node_id, content);
-    for child in node.children.iter().copied() {
+    commands.entity(parent).add_child(spawn.root);
+    node_to_entity.insert(node_id, spawn.root);
+    for (index, child) in node.children.iter().copied().enumerate() {
+        let child_parent = resolve_asset_child_parent_entity(document, &spawn, child, index);
         let _ = spawn_asset_node_recursive(
             commands,
             document,
             child,
-            content,
+            child_parent,
             widget_registry,
             inspector_registry,
             theme,
             node_to_entity,
         )?;
     }
-    Ok(content)
+    Ok(spawn.root)
+}
+
+fn resolve_asset_child_parent_entity(
+    document: &WidgetBlueprintDocument,
+    parent_spawn: &crate::widget::WidgetSpawnResult,
+    child_node_id: VistaNodeId,
+    child_index: usize,
+) -> Entity {
+    let slot = document
+        .nodes
+        .get(&child_node_id)
+        .and_then(|node| node.slot.as_deref())
+        .or(match child_index {
+            0 => Some("first"),
+            1 => Some("second"),
+            _ => None,
+        });
+
+    slot.and_then(|slot| parent_spawn.slot_entity(slot))
+        .unwrap_or(parent_spawn.root)
 }
 
 fn widget_style_registry() -> TypeRegistry {
@@ -607,15 +636,12 @@ fn serializable_style_is_empty(style: &SerializableVistaUiStyle) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::editor::blueprint::{
-        BlueprintCommand, WidgetSchemaRegistry, apply_blueprint_command,
-    };
+    use crate::editor::blueprint::{BlueprintCommand, apply_blueprint_command};
 
     #[test]
     fn vista_ui_asset_round_trips_blueprint_document() {
         let widget_registry = WidgetRegistry::new();
         let inspector_registry = InspectorEditorRegistry::default();
-        let schemas = WidgetSchemaRegistry::default();
         let mut document = WidgetBlueprintDocument::default();
 
         let root = match apply_blueprint_command(
@@ -623,7 +649,6 @@ mod tests {
                 widget_path: "common/button".to_owned(),
             },
             &mut document,
-            &schemas,
             &widget_registry,
         ) {
             Ok(id) => id,
@@ -635,7 +660,6 @@ mod tests {
                 widget_path: "common/label".to_owned(),
             },
             &mut document,
-            &schemas,
             &widget_registry,
         ) {
             Ok(id) => id,
@@ -689,7 +713,6 @@ mod tests {
     fn compact_asset_serialization_omits_default_values() {
         let widget_registry = WidgetRegistry::new();
         let inspector_registry = InspectorEditorRegistry::default();
-        let schemas = WidgetSchemaRegistry::default();
         let mut document = WidgetBlueprintDocument::default();
 
         let root = match apply_blueprint_command(
@@ -697,7 +720,6 @@ mod tests {
                 widget_path: "common/label".to_owned(),
             },
             &mut document,
-            &schemas,
             &widget_registry,
         ) {
             Ok(id) => id,

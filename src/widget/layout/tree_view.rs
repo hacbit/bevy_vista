@@ -1,9 +1,3 @@
-use bevy::prelude::*;
-use bevy_vista_macros::ShowInInspector;
-
-use crate::icons::Icons;
-use crate::theme::Theme;
-
 use super::*;
 
 pub struct TreeViewPlugin;
@@ -15,7 +9,7 @@ impl Plugin for TreeViewPlugin {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("layout/tree_view")]
+#[widget("layout/tree_view", children = "any", slots = "content")]
 #[builder(TreeViewBuilder)]
 pub struct TreeView {
     #[property(label = "Indent", min = 0.0)]
@@ -261,11 +255,15 @@ impl TreeViewBuilder {
 }
 
 impl DefaultWidgetBuilder for TreeViewBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
-        TreeViewBuilder::new()
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        let result = TreeViewBuilder::new()
             .width(px(240.0))
             .height(px(180.0))
-            .build(commands, std::iter::empty::<TreeNodeBuilder>(), theme)
+            .build_with_result(commands, std::iter::empty::<TreeNodeBuilder>(), theme);
+        WidgetSpawnResult::new(result.root).with_slot("content", result.content)
     }
 }
 

@@ -1,6 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Ident, LitStr, Meta, Path, parse::Parse, parse_macro_input};
+use syn::{
+    DeriveInput, Ident, LitStr, Meta, Path, Token, parse::Parse, parse::ParseStream,
+    parse_macro_input,
+};
 
 pub fn widget_derive_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -33,6 +36,8 @@ pub fn widget_derive_impl(input: TokenStream) -> TokenStream {
         name,
         &builder_path,
         has_show_in_inspector && has_component,
+        widget_info.children.as_deref(),
+        widget_info.slots.as_deref(),
     );
     let auto_register = auto_widget_registration(&input.ident);
 
@@ -48,12 +53,41 @@ pub fn widget_derive_impl(input: TokenStream) -> TokenStream {
 
 struct WidgetAttrInfo {
     path: LitStr,
+    children: Option<String>,
+    slots: Option<String>,
 }
 
 impl Parse for WidgetAttrInfo {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let path = input.parse::<LitStr>()?;
+        let mut children = None;
+        let mut slots = None;
+
+        while input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            let key = input.parse::<Ident>()?;
+            input.parse::<Token![=]>()?;
+            let value = input.parse::<LitStr>()?.value();
+            match key.to_string().as_str() {
+                "children" => {
+                    children = Some(value);
+                }
+                "slots" => {
+                    slots = Some(value);
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        key,
+                        "unsupported widget metadata key, expected `children` or `slots`",
+                    ));
+                }
+            }
+        }
+
         Ok(Self {
-            path: input.parse::<LitStr>()?,
+            path,
+            children,
+            slots,
         })
     }
 }
@@ -93,10 +127,12 @@ fn impl_get_widget_registration_trait(
     name: &str,
     builder_path: &Path,
     supports_inspector: bool,
+    children: Option<&str>,
+    slots: Option<&str>,
 ) -> proc_macro2::TokenStream {
     let ty = &input.ident;
     let generics = &input.generics;
-    let registration = if supports_inspector {
+    let base_registration = if supports_inspector {
         quote! {
             bevy_vista::widget::WidgetRegistration::of_with_inspector::<Self, #builder_path>(#category, #name)
         }
@@ -105,6 +141,20 @@ fn impl_get_widget_registration_trait(
             bevy_vista::widget::WidgetRegistration::of::<Self, #builder_path>(#category, #name)
         }
     };
+
+    let child_rule = children
+        .map(parse_child_rule_tokens)
+        .unwrap_or_else(|| quote! { bevy_vista::widget::WidgetChildRule::Any });
+
+    let slots_tokens = slots
+        .map(parse_slots_tokens)
+        .unwrap_or_else(|| quote! { &[] });
+
+    let registration = quote! {
+        #base_registration
+            .child_rule_config(#child_rule)
+            .child_slots(#slots_tokens)
+    };
     quote! {
         impl #generics bevy_vista::widget::GetWidgetRegistration for #ty #generics {
             fn get_widget_registration() -> bevy_vista::widget::WidgetRegistration {
@@ -112,6 +162,45 @@ fn impl_get_widget_registration_trait(
             }
         }
     }
+}
+
+fn parse_child_rule_tokens(raw: &str) -> proc_macro2::TokenStream {
+    let value = raw.trim().to_ascii_lowercase();
+    if value == "any" {
+        return quote! { bevy_vista::widget::WidgetChildRule::Any };
+    }
+    if let Some(inner) = value
+        .strip_prefix("exact(")
+        .and_then(|s| s.strip_suffix(')'))
+    {
+        let n = inner
+            .trim()
+            .parse::<usize>()
+            .unwrap_or_else(|_| panic!("invalid children metadata, expected exact(<usize>)"));
+        return quote! { bevy_vista::widget::WidgetChildRule::Exact(#n) };
+    }
+    if let Some(inner) = value.strip_prefix("max(").and_then(|s| s.strip_suffix(')')) {
+        let n = inner
+            .trim()
+            .parse::<usize>()
+            .unwrap_or_else(|_| panic!("invalid children metadata, expected max(<usize>)"));
+        return quote! { bevy_vista::widget::WidgetChildRule::Range { max: Some(#n) } };
+    }
+
+    panic!("invalid children metadata, use one of: any | exact(<usize>) | max(<usize>)");
+}
+
+fn parse_slots_tokens(raw: &str) -> proc_macro2::TokenStream {
+    let items = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
+    let lits = items
+        .iter()
+        .map(|slot| LitStr::new(slot, proc_macro2::Span::call_site()))
+        .collect::<Vec<_>>();
+    quote! { &[#(#lits),*] }
 }
 
 fn has_derive(input: &DeriveInput, derive_name: &str) -> bool {

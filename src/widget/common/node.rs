@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Widget, Reflect, Clone, Default)]
-#[widget("common/node")]
+#[widget("common/node", children = "any")]
 #[builder(NodeBuilder)]
 pub struct NodeWidget;
 
@@ -79,7 +79,10 @@ impl NodeBuilder {
 }
 
 impl DefaultWidgetBuilder for NodeBuilder {
-    fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
-        commands.spawn(NodeBuilder::new().build()).id()
+    fn spawn_default(
+        commands: &mut Commands,
+        _theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        commands.spawn(NodeBuilder::new().build()).id().into()
     }
 }

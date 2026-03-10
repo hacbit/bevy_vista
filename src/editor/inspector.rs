@@ -587,7 +587,6 @@ pub(super) fn apply_inspector_name_changes(
     name_fields: Query<(), With<InspectorNameField>>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
     mut hierarchy: ResMut<hierarchy::HierarchyState>,
 ) {
     if options.is_preview_mode {
@@ -620,7 +619,6 @@ pub(super) fn apply_inspector_name_changes(
             name,
         },
         &mut document,
-        &schemas,
         &widget_registry,
     );
     hierarchy.dirty = true;
@@ -638,7 +636,6 @@ pub(super) fn apply_inspector_numeric_changes(
     vec2_controls: Query<&InspectorVec2Control>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
 ) {
     if options.is_preview_mode {
         changes.clear();
@@ -680,7 +677,6 @@ pub(super) fn apply_inspector_numeric_changes(
                     InspectorResolvedEditor::Val(control.adapter),
                     field,
                     &mut document,
-                    &schemas,
                     &widget_registry,
                     None,
                 );
@@ -697,7 +693,7 @@ pub(super) fn apply_inspector_numeric_changes(
             if !write_val_number_field(control.adapter, field, change.value, control.numeric_min) {
                 continue;
             }
-            apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+            apply_style_change(node_id, style, &mut document, &widget_registry);
             continue;
         }
 
@@ -732,7 +728,6 @@ pub(super) fn apply_inspector_numeric_changes(
                     InspectorResolvedEditor::Vec2(InspectorVec2Adapter::Vec2),
                     field,
                     &mut document,
-                    &schemas,
                     &widget_registry,
                     None,
                 );
@@ -749,7 +744,7 @@ pub(super) fn apply_inspector_numeric_changes(
             if !write_vec2_axis_field(InspectorVec2Adapter::Vec2, field, input.axis, change.value) {
                 continue;
             }
-            apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+            apply_style_change(node_id, style, &mut document, &widget_registry);
             continue;
         }
 
@@ -781,7 +776,6 @@ pub(super) fn apply_inspector_numeric_changes(
                 control.editor,
                 field,
                 &mut document,
-                &schemas,
                 &widget_registry,
                 None,
             );
@@ -800,7 +794,7 @@ pub(super) fn apply_inspector_numeric_changes(
         if !write_number_field(adapter, field, change.value, control.numeric_min) {
             continue;
         }
-        apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+        apply_style_change(node_id, style, &mut document, &widget_registry);
     }
 }
 
@@ -813,7 +807,6 @@ pub(super) fn apply_inspector_string_changes(
     controls: Query<&InspectorControlBinding>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
 ) {
     if options.is_preview_mode {
         changes.clear();
@@ -863,7 +856,6 @@ pub(super) fn apply_inspector_string_changes(
                 control.editor,
                 field,
                 &mut document,
-                &schemas,
                 &widget_registry,
                 None,
             );
@@ -883,7 +875,7 @@ pub(super) fn apply_inspector_string_changes(
         if !write_string_field(adapter, field, value) {
             continue;
         }
-        apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+        apply_style_change(node_id, style, &mut document, &widget_registry);
     }
 }
 
@@ -898,7 +890,6 @@ pub(super) fn apply_inspector_dropdown_changes(
     val_controls: Query<&InspectorValControl>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
 ) {
     if options.is_preview_mode {
         changes.clear();
@@ -941,7 +932,6 @@ pub(super) fn apply_inspector_dropdown_changes(
                     InspectorResolvedEditor::Val(control.adapter),
                     field,
                     &mut document,
-                    &schemas,
                     &widget_registry,
                     theme,
                 );
@@ -958,7 +948,7 @@ pub(super) fn apply_inspector_dropdown_changes(
             if !write_val_unit_field(control.adapter, field, change.selected, control.numeric_min) {
                 continue;
             }
-            apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+            apply_style_change(node_id, style, &mut document, &widget_registry);
             continue;
         }
 
@@ -990,7 +980,6 @@ pub(super) fn apply_inspector_dropdown_changes(
                 control.editor,
                 field,
                 &mut document,
-                &schemas,
                 &widget_registry,
                 theme,
             );
@@ -1009,7 +998,7 @@ pub(super) fn apply_inspector_dropdown_changes(
         if !write_choice_field(adapter, field, change.selected, theme) {
             continue;
         }
-        apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+        apply_style_change(node_id, style, &mut document, &widget_registry);
     }
 }
 
@@ -1021,7 +1010,6 @@ pub(super) fn apply_inspector_checkbox_changes(
     controls: Query<&InspectorControlBinding>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
 ) {
     if options.is_preview_mode {
         changes.clear();
@@ -1060,7 +1048,6 @@ pub(super) fn apply_inspector_checkbox_changes(
                 control.editor,
                 field,
                 &mut document,
-                &schemas,
                 &widget_registry,
                 None,
             );
@@ -1079,7 +1066,7 @@ pub(super) fn apply_inspector_checkbox_changes(
         if !write_bool_field(adapter, field, change.checked) {
             continue;
         }
-        apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+        apply_style_change(node_id, style, &mut document, &widget_registry);
     }
 }
 
@@ -1091,7 +1078,6 @@ pub(super) fn apply_inspector_color_changes(
     controls: Query<&InspectorControlBinding>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
 ) {
     if options.is_preview_mode {
         changes.clear();
@@ -1130,7 +1116,6 @@ pub(super) fn apply_inspector_color_changes(
                 control.editor,
                 field,
                 &mut document,
-                &schemas,
                 &widget_registry,
                 None,
             );
@@ -1149,7 +1134,7 @@ pub(super) fn apply_inspector_color_changes(
         if !write_color_field(adapter, field, change.color) {
             continue;
         }
-        apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+        apply_style_change(node_id, style, &mut document, &widget_registry);
     }
 }
 
@@ -1292,7 +1277,6 @@ fn on_inspector_reset_button_click(
     panel_state: Res<InspectorPanelState>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
     buttons: Query<&InspectorFieldDecoration, With<InspectorResetButton>>,
     parents: Query<&ChildOf>,
 ) {
@@ -1327,14 +1311,13 @@ fn on_inspector_reset_button_click(
                 return;
             };
             field.apply(default_field);
-            apply_style_change(node_id, style, &mut document, &schemas, &widget_registry);
+            apply_style_change(node_id, style, &mut document, &widget_registry);
         }
         InspectorBindingTarget::WidgetProp => {
             clear_widget_prop_change(
                 node_id,
                 &decoration.field_path,
                 &mut document,
-                &schemas,
                 &widget_registry,
             );
         }
@@ -2123,7 +2106,6 @@ fn apply_widget_prop_change(
     field_path: &str,
     serialized: String,
     document: &mut blueprint::WidgetBlueprintDocument,
-    schemas: &blueprint::WidgetSchemaRegistry,
     widget_registry: &WidgetRegistry,
 ) {
     let _ = blueprint::apply_blueprint_command(
@@ -2133,7 +2115,6 @@ fn apply_widget_prop_change(
             value: serialized,
         },
         document,
-        schemas,
         widget_registry,
     );
 }
@@ -2142,7 +2123,6 @@ fn clear_widget_prop_change(
     node_id: blueprint::BlueprintNodeId,
     field_path: &str,
     document: &mut blueprint::WidgetBlueprintDocument,
-    schemas: &blueprint::WidgetSchemaRegistry,
     widget_registry: &WidgetRegistry,
 ) {
     let _ = blueprint::apply_blueprint_command(
@@ -2151,7 +2131,6 @@ fn clear_widget_prop_change(
             key: field_path.to_owned(),
         },
         document,
-        schemas,
         widget_registry,
     );
 }
@@ -2162,7 +2141,6 @@ fn store_widget_prop_change(
     editor: InspectorResolvedEditor,
     field: &dyn PartialReflect,
     document: &mut blueprint::WidgetBlueprintDocument,
-    schemas: &blueprint::WidgetSchemaRegistry,
     widget_registry: &WidgetRegistry,
     theme: Option<&Theme>,
 ) {
@@ -2178,7 +2156,6 @@ fn store_widget_prop_change(
             field_path,
             serialized,
             document,
-            schemas,
             widget_registry,
         );
         return;
@@ -2189,7 +2166,6 @@ fn store_widget_prop_change(
             field_path,
             serialized,
             document,
-            schemas,
             widget_registry,
         );
         return;
@@ -2200,14 +2176,13 @@ fn store_widget_prop_change(
             field_path,
             serialized,
             document,
-            schemas,
             widget_registry,
         );
         return;
     };
 
     if field.reflect_partial_eq(default_field).unwrap_or(false) {
-        clear_widget_prop_change(node_id, field_path, document, schemas, widget_registry);
+        clear_widget_prop_change(node_id, field_path, document, widget_registry);
         return;
     }
 
@@ -2216,7 +2191,6 @@ fn store_widget_prop_change(
         field_path,
         serialized,
         document,
-        schemas,
         widget_registry,
     );
 }
@@ -2244,7 +2218,6 @@ fn apply_style_change(
     node_id: blueprint::BlueprintNodeId,
     style: WidgetStyle,
     document: &mut blueprint::WidgetBlueprintDocument,
-    schemas: &blueprint::WidgetSchemaRegistry,
     widget_registry: &WidgetRegistry,
 ) {
     let _ = blueprint::apply_blueprint_command(
@@ -2253,7 +2226,6 @@ fn apply_style_change(
             style,
         },
         document,
-        schemas,
         widget_registry,
     );
 }

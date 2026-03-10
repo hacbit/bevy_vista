@@ -354,7 +354,6 @@ fn on_hierarchy_item_drag_end(
     mut row_bg: Query<&mut BackgroundColor>,
     mut drag: ResMut<HierarchyDragState>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     mut state: ResMut<HierarchyState>,
 ) {
@@ -382,7 +381,6 @@ fn on_hierarchy_item_drag_end(
                     index: None,
                 },
                 &mut document,
-                &schemas,
                 &widget_registry,
             );
             state.dirty = true;
@@ -395,7 +393,6 @@ fn on_hierarchy_item_drag_end(
                     index: None,
                 },
                 &mut document,
-                &schemas,
                 &widget_registry,
             );
             state.dirty = true;
@@ -426,7 +423,6 @@ fn on_hierarchy_content_drag_end(
     mut row_bg: Query<&mut BackgroundColor>,
     mut drag: ResMut<HierarchyDragState>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     mut state: ResMut<HierarchyState>,
 ) {
@@ -445,7 +441,6 @@ fn on_hierarchy_content_drag_end(
                 index: None,
             },
             &mut document,
-            &schemas,
             &widget_registry,
         );
     }

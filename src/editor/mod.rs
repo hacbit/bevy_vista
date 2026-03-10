@@ -25,7 +25,6 @@ pub(crate) fn init_editor_ui(app: &mut App) {
     app.add_plugins(UiMaterialPlugin::<GridUiMaterial>::default())
         .init_resource::<widget_lib::WidgetLibDragState>()
         .init_resource::<blueprint::WidgetBlueprintDocument>()
-        .init_resource::<blueprint::WidgetSchemaRegistry>()
         .init_resource::<blueprint::BlueprintRuntimeMap>()
         .init_resource::<toolbar::EditorDocumentPath>()
         .init_resource::<toolbar::EditorDocumentToolbarState>()
@@ -376,7 +375,8 @@ fn spawn_content_panels(
         .id();
     let left_split = SplitViewBuilder::new()
         .axis(SplitViewAxis::Vertical)
-        .build_with_entities(&mut commands, widget_lib, hierarchy, theme);
+        .build_with_entities(&mut commands, widget_lib, hierarchy, theme)
+        .root;
 
     let viewport = commands
         .spawn((Name::new("Viewport"), Node::default(), Viewport))
@@ -388,13 +388,15 @@ fn spawn_content_panels(
         .default_first_size(Val::Percent(50.))
         .min_first_size(Val::Percent(30.))
         .min_second_size(Val::Px(100.))
-        .build_with_entities(&mut commands, viewport, inspector, theme);
+        .build_with_entities(&mut commands, viewport, inspector, theme)
+        .root;
 
     let content_split = SplitViewBuilder::new()
         .default_first_size(Val::Percent(30.))
         .min_first_size(Val::Percent(20.))
         .min_second_size(Val::Percent(50.))
-        .build_with_entities(&mut commands, left_split, right_split, theme);
+        .build_with_entities(&mut commands, left_split, right_split, theme)
+        .root;
 
     commands
         .entity(*content_ui)

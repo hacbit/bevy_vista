@@ -1,10 +1,6 @@
-use bevy::{
-    prelude::*,
-    window::{CursorIcon, PrimaryWindow, SystemCursorIcon},
-};
-use bevy_vista_macros::ShowInInspector;
+use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 
-use crate::theme::{Theme, ThemeBoundary, ThemeScope, resolve_theme_or_global};
+use crate::theme::resolve_theme_or_global;
 
 use super::*;
 
@@ -45,7 +41,7 @@ impl SplitViewAxis {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("layout/split_view")]
+#[widget("layout/split_view", children = "exact(2)", slots = "first,second")]
 #[builder(SplitViewBuilder)]
 pub struct SplitView {
     #[property(label = "Axis")]
@@ -76,9 +72,9 @@ impl Default for SplitView {
 }
 
 #[derive(Component, Clone, Copy)]
-struct SplitViewPanels {
-    first: Entity,
-    second: Entity,
+pub(crate) struct SplitViewPanels {
+    pub(crate) first: Entity,
+    pub(crate) second: Entity,
 }
 
 #[derive(Component, Default)]
@@ -159,6 +155,7 @@ impl SplitViewBuilder {
         let first_entity = commands.spawn((Name::new("Split First"), first)).id();
         let second_entity = commands.spawn((Name::new("Split Second"), second)).id();
         self.build_with_entities(commands, first_entity, second_entity, theme)
+            .root
     }
 
     pub fn build_with_entities(
@@ -167,7 +164,7 @@ impl SplitViewBuilder {
         first_entity: Entity,
         second_entity: Entity,
         theme: Option<&Theme>,
-    ) -> Entity {
+    ) -> WidgetSpawnResult {
         let split_view = self.split_view;
         apply_panel_layout(commands, first_entity, second_entity, &split_view);
 
@@ -186,7 +183,7 @@ impl SplitViewBuilder {
             .observe(cancel_split_divider_drag)
             .id();
 
-        commands
+        let root = commands
             .spawn((
                 Node {
                     width: self.width,
@@ -202,12 +199,19 @@ impl SplitViewBuilder {
                 },
             ))
             .add_children(&[first_entity, divider_entity, second_entity])
-            .id()
+            .id();
+
+        WidgetSpawnResult::new(root)
+            .with_slot("first", first_entity)
+            .with_slot("second", second_entity)
     }
 }
 
 impl DefaultWidgetBuilder for SplitViewBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
         let first = commands
             .spawn((
                 Node::default(),

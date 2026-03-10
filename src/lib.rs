@@ -15,7 +15,7 @@ pub mod widget;
 pub mod prelude {
     pub use super::VistaUiPlugin;
     pub use super::asset::*;
-    pub use super::bevy_vista_macros::Widget;
+    pub use super::bevy_vista_macros::{Widget, ShowInInspector};
     pub use super::editor_resources::*;
     pub use super::icons::{EditorIconsPlugin, Icons};
     pub use super::theme::{

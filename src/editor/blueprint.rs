@@ -3,84 +3,11 @@ use bevy::prelude::*;
 use std::fmt;
 
 use crate::inspector::InspectorEditorRegistry;
-use crate::widget::{WidgetRegistry, WidgetStyle, spawn_blueprint_widget_content};
+use crate::widget::{WidgetChildRule, WidgetRegistry, WidgetStyle, spawn_blueprint_widget_content};
 
 use super::*;
 
 pub type BlueprintNodeId = u64;
-
-#[derive(Debug, Clone, Copy)]
-pub enum BlueprintChildRule {
-    Any,
-    Exact(usize),
-    Range { max: Option<usize> },
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct WidgetSchema {
-    pub child_rule: BlueprintChildRule,
-}
-
-impl Default for WidgetSchema {
-    fn default() -> Self {
-        Self {
-            child_rule: BlueprintChildRule::Any,
-        }
-    }
-}
-
-#[derive(Resource)]
-pub struct WidgetSchemaRegistry {
-    schemas: HashMap<String, WidgetSchema>,
-}
-
-impl Default for WidgetSchemaRegistry {
-    fn default() -> Self {
-        let mut schemas = HashMap::new();
-        schemas.insert(
-            "layout/split_view".to_owned(),
-            WidgetSchema {
-                child_rule: BlueprintChildRule::Exact(2),
-            },
-        );
-        schemas.insert(
-            "layout/divider".to_owned(),
-            WidgetSchema {
-                child_rule: BlueprintChildRule::Exact(0),
-            },
-        );
-        schemas.insert(
-            "common/label".to_owned(),
-            WidgetSchema {
-                child_rule: BlueprintChildRule::Exact(0),
-            },
-        );
-        schemas.insert(
-            "common/button".to_owned(),
-            WidgetSchema {
-                child_rule: BlueprintChildRule::Range { max: Some(1) },
-            },
-        );
-        Self { schemas }
-    }
-}
-
-impl WidgetSchemaRegistry {
-    pub fn get_schema(&self, widget_path: &str) -> WidgetSchema {
-        self.schemas.get(widget_path).copied().unwrap_or_default()
-    }
-
-    fn allows_child_count(&self, widget_path: &str, next_count: usize) -> bool {
-        match self.get_schema(widget_path).child_rule {
-            BlueprintChildRule::Any => true,
-            BlueprintChildRule::Exact(n) => next_count <= n,
-            BlueprintChildRule::Range { max } => match max {
-                Some(max) => next_count <= max,
-                None => true,
-            },
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct WidgetBlueprintNode {
@@ -90,6 +17,7 @@ pub struct WidgetBlueprintNode {
     pub style: WidgetStyle,
     pub props: HashMap<String, String>,
     pub parent: Option<BlueprintNodeId>,
+    pub slot: Option<String>,
     pub children: Vec<BlueprintNodeId>,
 }
 
@@ -171,6 +99,7 @@ pub enum BlueprintCommand {
     },
 }
 
+#[derive(Debug)]
 pub enum BlueprintCommandError {
     UnknownWidgetPath(String),
     ParentNotFound(BlueprintNodeId),
@@ -203,7 +132,6 @@ impl fmt::Display for BlueprintCommandError {
 pub fn apply_blueprint_command(
     command: BlueprintCommand,
     document: &mut WidgetBlueprintDocument,
-    schemas: &WidgetSchemaRegistry,
     widget_registry: &WidgetRegistry,
 ) -> Result<BlueprintNodeId, BlueprintCommandError> {
     match command {
@@ -222,6 +150,7 @@ pub fn apply_blueprint_command(
                     style: WidgetStyle::default(),
                     props: HashMap::new(),
                     parent: None,
+                    slot: None,
                     children: Vec::new(),
                 },
             );
@@ -243,7 +172,7 @@ pub fn apply_blueprint_command(
             };
             let parent_widget = parent_node.widget_path.clone();
             let next_count = parent_node.children.len() + 1;
-            if !schemas.allows_child_count(&parent_widget, next_count) {
+            if !allows_child_count(widget_registry, &parent_widget, next_count) {
                 return Err(BlueprintCommandError::ChildConstraintViolated {
                     parent,
                     parent_widget,
@@ -260,12 +189,14 @@ pub fn apply_blueprint_command(
                     style: WidgetStyle::default(),
                     props: HashMap::new(),
                     parent: Some(parent),
+                    slot: None,
                     children: Vec::new(),
                 },
             );
             if let Some(parent_node) = document.nodes.get_mut(&parent) {
                 parent_node.children.push(id);
             }
+            refresh_child_slots_for_parent(document, parent, widget_registry);
             document.dirty = true;
             document.pending_select = Some(id);
             Ok(id)
@@ -274,12 +205,16 @@ pub fn apply_blueprint_command(
             if !document.nodes.contains_key(&node) {
                 return Err(BlueprintCommandError::NodeNotFound(node));
             }
+            let parent_before_remove = document.nodes.get(&node).and_then(|n| n.parent);
             let fallback = document
                 .nodes
                 .get(&node)
                 .and_then(|n| n.parent)
                 .or_else(|| document.roots.first().copied().filter(|r| *r != node));
             remove_node_subtree(document, node);
+            if let Some(parent) = parent_before_remove {
+                refresh_child_slots_for_parent(document, parent, widget_registry);
+            }
             document.dirty = true;
             document.pending_select = fallback;
             Ok(node)
@@ -317,6 +252,7 @@ pub fn apply_blueprint_command(
                             insert_at -= 1;
                         }
                         parent_node.children.insert(insert_at, id);
+                        refresh_child_slots_for_parent(document, parent, widget_registry);
                         document.dirty = true;
                     }
                 } else {
@@ -347,7 +283,7 @@ pub fn apply_blueprint_command(
                     .get(&parent)
                     .map(|n| n.children.len())
                     .unwrap_or(0);
-                if !schemas.allows_child_count(&parent_widget, current_child_count + 1) {
+                if !allows_child_count(widget_registry, &parent_widget, current_child_count + 1) {
                     return Err(BlueprintCommandError::ChildConstraintViolated {
                         parent,
                         parent_widget,
@@ -381,6 +317,13 @@ pub fn apply_blueprint_command(
 
             if let Some(node_mut) = document.nodes.get_mut(&node) {
                 node_mut.parent = new_parent;
+                node_mut.slot = None;
+            }
+            if let Some(parent) = old_parent {
+                refresh_child_slots_for_parent(document, parent, widget_registry);
+            }
+            if let Some(parent) = new_parent {
+                refresh_child_slots_for_parent(document, parent, widget_registry);
             }
             document.dirty = true;
             document.pending_select = Some(node);
@@ -434,6 +377,43 @@ pub fn default_blueprint_node_name(widget_path: &str) -> String {
         .next_back()
         .map(str::to_owned)
         .unwrap_or_else(|| widget_path.to_owned())
+}
+
+fn allows_child_count(
+    widget_registry: &WidgetRegistry,
+    widget_path: &str,
+    next_count: usize,
+) -> bool {
+    let Some(registration) = widget_registry.get_widget_by_path(widget_path) else {
+        return true;
+    };
+    match registration.child_rule() {
+        WidgetChildRule::Any => true,
+        WidgetChildRule::Exact(n) => next_count <= n,
+        WidgetChildRule::Range { max } => match max {
+            Some(max) => next_count <= max,
+            None => true,
+        },
+    }
+}
+
+fn refresh_child_slots_for_parent(
+    document: &mut WidgetBlueprintDocument,
+    parent: BlueprintNodeId,
+    widget_registry: &WidgetRegistry,
+) {
+    let Some(parent_node) = document.nodes.get(&parent) else {
+        return;
+    };
+    let Some(registration) = widget_registry.get_widget_by_path(&parent_node.widget_path) else {
+        return;
+    };
+    let children = parent_node.children.clone();
+    for (index, child) in children.into_iter().enumerate() {
+        if let Some(child_node) = document.nodes.get_mut(&child) {
+            child_node.slot = registration.child_slot_at(index).map(str::to_owned);
+        }
+    }
 }
 
 fn remove_node_subtree(document: &mut WidgetBlueprintDocument, node: BlueprintNodeId) {
@@ -533,7 +513,6 @@ pub(super) fn delete_selected_blueprint_node_shortcut(
     mut selection: ResMut<VistaEditorSelection>,
     runtime_map: Res<BlueprintRuntimeMap>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<WidgetSchemaRegistry>,
     mut document: ResMut<WidgetBlueprintDocument>,
     mut hierarchy: ResMut<hierarchy::HierarchyState>,
 ) {
@@ -551,7 +530,6 @@ pub(super) fn delete_selected_blueprint_node_shortcut(
     if apply_blueprint_command(
         BlueprintCommand::RemoveNode { node: node_id },
         &mut document,
-        &schemas,
         &widget_registry,
     )
     .is_ok()
@@ -574,7 +552,7 @@ fn compile_node_recursive(
     let Some(node) = document.nodes.get(&node_id) else {
         return;
     };
-    let Some(content) = spawn_blueprint_widget_content(
+    let Some(spawn) = spawn_blueprint_widget_content(
         widget_registry,
         inspector_registry,
         commands,
@@ -587,12 +565,18 @@ fn compile_node_recursive(
     };
 
     let entity =
-        viewport::spawn_canvas_widget_instance(commands, parent, content, &node.widget_path);
+        viewport::spawn_canvas_widget_instance(commands, parent, spawn.root, &node.widget_path);
     commands.entity(entity).insert(BlueprintNodeRef);
     runtime_map.node_to_entity.insert(node_id, entity);
     runtime_map.entity_to_node.insert(entity, node_id);
 
-    for child in node.children.iter().copied() {
+    for (index, child) in node.children.iter().copied().enumerate() {
+        let child_parent = resolve_child_parent_entity(
+            document,
+            &spawn,
+            child,
+            index,
+        );
         compile_node_recursive(
             commands,
             document,
@@ -600,8 +584,28 @@ fn compile_node_recursive(
             widget_registry,
             inspector_registry,
             theme,
-            entity,
+            child_parent,
             child,
         );
     }
+}
+
+fn resolve_child_parent_entity(
+    document: &WidgetBlueprintDocument,
+    parent_spawn: &crate::widget::WidgetSpawnResult,
+    child_node_id: BlueprintNodeId,
+    child_index: usize,
+) -> Entity {
+    let slot = document
+        .nodes
+        .get(&child_node_id)
+        .and_then(|node| node.slot.as_deref())
+        .or(match child_index {
+            0 => Some("first"),
+            1 => Some("second"),
+            _ => None,
+        });
+
+    slot.and_then(|slot| parent_spawn.slot_entity(slot))
+        .unwrap_or(parent_spawn.root)
 }

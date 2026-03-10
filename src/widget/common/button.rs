@@ -1,6 +1,3 @@
-use bevy::app::PostUpdate;
-use bevy_vista_macros::ShowInInspector;
-
 use super::*;
 
 pub struct ButtonWidgetPlugin;
@@ -101,13 +98,16 @@ impl ButtonBuilder {
 }
 
 impl DefaultWidgetBuilder for ButtonBuilder {
-    fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
-        commands.spawn(ButtonBuilder::new().build()).id()
+    fn spawn_default(
+        commands: &mut Commands,
+        _theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        commands.spawn(ButtonBuilder::new().build()).id().into()
     }
 }
 
 #[derive(Widget, Reflect, Component, Clone, ShowInInspector)]
-#[widget("common/button")]
+#[widget("common/button", children = "max(1)")]
 #[builder(ButtonBuilder)]
 pub struct ButtonWidget {
     #[property(label = "Normal")]

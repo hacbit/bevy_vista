@@ -1,15 +1,9 @@
 use arboard::Clipboard;
-use bevy::input::ButtonState;
-use bevy::input::keyboard::{Key, KeyboardInput};
-use bevy::prelude::*;
-use bevy::text::TextLayoutInfo;
-use bevy::ui::{ComputedNode, RelativeCursorPosition};
-use bevy::window::{Ime, PrimaryWindow};
-use bevy_vista_macros::{ShowInInspector, Widget};
+use bevy::{input::{ButtonState, keyboard::{Key, KeyboardInput}}, text::TextLayoutInfo, ui::RelativeCursorPosition, window::PrimaryWindow};
 
-use crate as bevy_vista;
-use crate::theme::{Theme, ThemeBoundary, ThemeScope, resolve_theme_or_global};
-use crate::widget::DefaultWidgetBuilder;
+use crate::theme::resolve_theme_or_global;
+
+use super::*;
 
 pub struct TextFieldPlugin;
 
@@ -39,7 +33,7 @@ impl Plugin for TextFieldPlugin {
 }
 
 #[derive(Component, Default, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("input/text_field")]
+#[widget("input/text_field", children = "exact(0)")]
 #[builder(TextFieldBuilder)]
 pub struct TextField {
     #[property(hidden)]
@@ -371,8 +365,11 @@ impl TextFieldBuilder {
 }
 
 impl DefaultWidgetBuilder for TextFieldBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
-        TextFieldBuilder::new().build(commands, theme)
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        TextFieldBuilder::new().build(commands, theme).into()
     }
 }
 

@@ -1,8 +1,3 @@
-use bevy::prelude::*;
-use bevy_vista_macros::ShowInInspector;
-
-use crate::theme::Theme;
-
 use super::*;
 
 #[derive(Debug, Reflect, Clone, Copy, PartialEq, Eq, Default)]
@@ -13,7 +8,7 @@ pub enum DividerAxis {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("layout/divider")]
+#[widget("layout/divider", children = "exact(0)")]
 #[builder(DividerBuilder)]
 pub struct Divider {
     #[property(label = "Axis")]
@@ -101,8 +96,11 @@ impl DividerBuilder {
 }
 
 impl DefaultWidgetBuilder for DividerBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
-        commands.spawn(DividerBuilder::new().build(theme)).id()
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        commands.spawn(DividerBuilder::new().build(theme)).id().into()
     }
 }
 

@@ -55,7 +55,7 @@ macro_rules! define_numeric_field {
             }
 
             #[derive(Component, Reflect, Clone, Widget)]
-            #[widget($path)]
+            #[widget($path, children = "exact(0)")]
             #[builder($builder)]
             pub struct $field {
                 pub value: $ty,
@@ -175,8 +175,8 @@ macro_rules! define_numeric_field {
                 fn spawn_default(
                     commands: &mut Commands,
                     theme: Option<&crate::theme::Theme>,
-                ) -> Entity {
-                    $builder::new().build(commands, theme)
+                ) -> WidgetSpawnResult {
+                    $builder::new().build(commands, theme).into()
                 }
             }
 

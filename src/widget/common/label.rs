@@ -1,7 +1,4 @@
 use super::*;
-use bevy::app::PostUpdate;
-use bevy::prelude::Component;
-use bevy_vista_macros::ShowInInspector;
 
 pub struct LabelWidgetPlugin;
 
@@ -12,7 +9,7 @@ impl Plugin for LabelWidgetPlugin {
 }
 
 #[derive(Widget, Reflect, Component, Clone, Debug, ShowInInspector)]
-#[widget("common/label")]
+#[widget("common/label", children = "exact(0)")]
 #[builder(LabelBuilder)]
 pub struct LabelWidget {
     pub text: String,
@@ -81,8 +78,11 @@ impl LabelBuilder {
 }
 
 impl DefaultWidgetBuilder for LabelBuilder {
-    fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
-        commands.spawn(LabelBuilder::new().build()).id()
+    fn spawn_default(
+        commands: &mut Commands,
+        _theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        commands.spawn(LabelBuilder::new().build()).id().into()
     }
 }
 

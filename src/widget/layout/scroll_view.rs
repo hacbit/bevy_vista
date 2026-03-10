@@ -1,16 +1,4 @@
-use bevy::app::{App, Plugin, PostUpdate, Update};
-use bevy::input::{
-    ButtonInput,
-    keyboard::KeyCode,
-    mouse::{MouseScrollUnit, MouseWheel},
-};
-use bevy::math::Vec2;
-use bevy::picking::{
-    hover::{HoverMap, Hovered},
-    prelude::*,
-};
-use bevy::reflect::Reflect;
-use bevy_vista_macros::ShowInInspector;
+use bevy::{input::mouse::{MouseScrollUnit, MouseWheel}, picking::hover::{HoverMap, Hovered}};
 
 use super::*;
 
@@ -66,7 +54,7 @@ fn is_enable_mouse_wheel(options: Res<ScrollOptions>) -> bool {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("layout/scroll_view")]
+#[widget("layout/scroll_view", children = "any", slots = "content")]
 #[builder(ScrollViewBuilder)]
 pub struct ScrollView {
     #[property(label = "Horizontal Bar")]
@@ -176,6 +164,22 @@ impl ScrollViewBuilder {
         self
     }
 
+    fn spawn_content_root(commands: &mut Commands) -> Entity {
+        commands
+            .spawn((
+                Name::new("Scroll View Content"),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Auto,
+                    min_width: Val::Px(0.0),
+                    min_height: Val::Px(0.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+            ))
+            .id()
+    }
+
     pub fn build_with_entities(
         self,
         commands: &mut Commands,
@@ -198,11 +202,16 @@ impl ScrollViewBuilder {
 }
 
 impl DefaultWidgetBuilder for ScrollViewBuilder {
-    fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
-        ScrollViewBuilder::new()
+    fn spawn_default(
+        commands: &mut Commands,
+        _theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        let content = Self::spawn_content_root(commands);
+        let root = ScrollViewBuilder::new()
             .width(px(240.0))
             .height(px(140.0))
-            .build_with_entities(commands, std::iter::empty::<Entity>())
+            .build_with_entities(commands, [content]);
+        WidgetSpawnResult::new(root).with_slot("content", content)
     }
 }
 

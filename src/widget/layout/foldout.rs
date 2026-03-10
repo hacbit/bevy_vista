@@ -1,8 +1,3 @@
-use bevy::prelude::*;
-use bevy_vista_macros::ShowInInspector;
-
-use crate::{icons::Icons, theme::Theme};
-
 use super::*;
 
 pub struct FoldoutPlugin;
@@ -12,7 +7,7 @@ impl Plugin for FoldoutPlugin {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("layout/foldout")]
+#[widget("layout/foldout", children = "any", slots = "content")]
 #[builder(FoldoutBuilder)]
 pub struct Foldout {
     #[property(label = "Expanded")]
@@ -65,6 +60,20 @@ impl FoldoutBuilder {
     pub fn width(mut self, width: Val) -> Self {
         self.width = width;
         self
+    }
+
+    fn spawn_content_root(commands: &mut Commands) -> Entity {
+        commands
+            .spawn((
+                Name::new("Foldout Content"),
+                Node {
+                    width: Val::Percent(100.0),
+                    min_width: Val::Px(0.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+            ))
+            .id()
     }
 
     pub fn build_with_entity(
@@ -186,19 +195,13 @@ impl FoldoutBuilder {
 }
 
 impl DefaultWidgetBuilder for FoldoutBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity {
-        FoldoutBuilder::new("Foldout").build(
-            commands,
-            (
-                Node {
-                    width: px(220.0),
-                    height: px(80.0),
-                    ..default()
-                },
-                BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.7)),
-            ),
-            theme,
-        )
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        let content = Self::spawn_content_root(commands);
+        let root = FoldoutBuilder::new("Foldout").build_with_entity(commands, content, theme);
+        WidgetSpawnResult::new(root).with_slot("content", content)
     }
 }
 

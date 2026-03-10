@@ -1,8 +1,3 @@
-use bevy::prelude::*;
-use bevy_vista_macros::ShowInInspector;
-
-use crate::theme::Theme;
-
 use super::*;
 
 pub struct ListViewPlugin;
@@ -12,7 +7,7 @@ impl Plugin for ListViewPlugin {
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
-#[widget("layout/list_view")]
+#[widget("layout/list_view", children = "any", slots = "content")]
 #[builder(ListViewBuilder)]
 pub struct ListView {
     #[property(label = "Direction")]
@@ -48,6 +43,11 @@ pub struct ListViewBuilder {
     width: Val,
     height: Val,
     padding: UiRect,
+}
+
+pub struct ListViewBuildResult {
+    pub root: Entity,
+    pub content: Entity,
 }
 
 impl Default for ListViewBuilder {
@@ -101,6 +101,14 @@ impl ListViewBuilder {
         commands: &mut Commands,
         items: impl IntoIterator<Item = Entity>,
     ) -> Entity {
+        self.build_with_result(commands, items).root
+    }
+
+    pub fn build_with_result(
+        self,
+        commands: &mut Commands,
+        items: impl IntoIterator<Item = Entity>,
+    ) -> ListViewBuildResult {
         let list = self.list;
         let content = commands
             .spawn((
@@ -126,7 +134,7 @@ impl ListViewBuilder {
             .vertical_bar(ScrollbarVisibility::Auto)
             .build_with_entities(commands, [content]);
         commands.entity(root).insert(list);
-        root
+        ListViewBuildResult { root, content }
     }
 
     pub fn build_text_items<'a>(
@@ -144,11 +152,15 @@ impl ListViewBuilder {
 }
 
 impl DefaultWidgetBuilder for ListViewBuilder {
-    fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
-        ListViewBuilder::new()
+    fn spawn_default(
+        commands: &mut Commands,
+        _theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        let result = ListViewBuilder::new()
             .width(px(220.0))
             .height(px(120.0))
-            .build_with_entities(commands, std::iter::empty::<Entity>())
+            .build_with_result(commands, std::iter::empty::<Entity>());
+        WidgetSpawnResult::new(result.root).with_slot("content", result.content)
     }
 }
 

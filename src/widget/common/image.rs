@@ -1,7 +1,4 @@
 use super::*;
-use bevy::app::PostUpdate;
-use bevy::prelude::{Handle, Image};
-use bevy_vista_macros::ShowInInspector;
 
 pub struct ImageWidgetPlugin;
 
@@ -12,7 +9,7 @@ impl Plugin for ImageWidgetPlugin {
 }
 
 #[derive(Widget, Reflect, Component, Clone, Default, Debug, ShowInInspector)]
-#[widget("common/image")]
+#[widget("common/image", children = "exact(0)")]
 #[builder(ImageBuilder)]
 pub struct ImageWidget {
     #[property(hidden)]
@@ -82,8 +79,11 @@ impl ImageBuilder {
 }
 
 impl DefaultWidgetBuilder for ImageBuilder {
-    fn spawn_default(commands: &mut Commands, _theme: Option<&crate::theme::Theme>) -> Entity {
-        commands.spawn(ImageBuilder::new().build()).id()
+    fn spawn_default(
+        commands: &mut Commands,
+        _theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult {
+        commands.spawn(ImageBuilder::new().build()).id().into()
     }
 }
 

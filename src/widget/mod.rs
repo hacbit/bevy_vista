@@ -2,24 +2,17 @@
 
 use std::any::TypeId;
 
-use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
-use bevy::color::prelude::*;
-use bevy::ecs::prelude::*;
-use bevy::picking::prelude::Pickable;
-use bevy::prelude::Update;
-use bevy::reflect::Reflect;
-use bevy::text::prelude::*;
-use bevy::ui::prelude::*;
-use bevy::utils::{TypeIdMap, prelude::*};
-use bevy::{camera::visibility::Visibility, platform::collections::HashMap};
-
-use bevy_vista_macros::{ShowInInspector, Widget};
+use bevy::app::PluginGroupBuilder;
+use bevy::platform::collections::HashMap;
+use bevy::utils::TypeIdMap;
+use bevy::prelude::*;
 
 use crate as bevy_vista;
 use crate::inspector::{
     InspectorEditorRegistry, InspectorEntryDescriptor, ShowInInspector as ShowInInspectorTrait,
     apply_serialized_editor_value,
 };
+use crate::prelude::*;
 
 pub mod common;
 pub use common::*;
@@ -199,17 +192,61 @@ impl WidgetRegistry {
         theme: Option<&crate::theme::Theme>,
     ) -> Option<Entity> {
         self.get_widget_by_path(path)
-            .map(|registration| registration.spawn_default(commands, theme))
+            .map(|registration| registration.spawn_default(commands, theme).root)
     }
 }
 
 pub type WidgetId = (&'static str, &'static str);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WidgetChildRule {
+    Any,
+    Exact(usize),
+    Range { max: Option<usize> },
+}
+
+impl Default for WidgetChildRule {
+    fn default() -> Self {
+        Self::Any
+    }
+}
+
+pub struct WidgetSpawnResult {
+    pub root: Entity,
+    slots: HashMap<&'static str, Entity>,
+}
+
+impl WidgetSpawnResult {
+    pub fn new(root: Entity) -> Self {
+        Self {
+            root,
+            slots: HashMap::default(),
+        }
+    }
+
+    pub fn with_slot(mut self, slot: &'static str, entity: Entity) -> Self {
+        self.slots.insert(slot, entity);
+        self
+    }
+
+    pub fn slot_entity(&self, slot: &str) -> Option<Entity> {
+        self.slots.get(slot).copied()
+    }
+}
+
+impl From<Entity> for WidgetSpawnResult {
+    fn from(root: Entity) -> Self {
+        Self::new(root)
+    }
+}
+
 pub struct WidgetRegistration {
     category: &'static str,
     name: &'static str,
     type_id: TypeId,
-    spawn_default_fn: fn(&mut Commands, Option<&crate::theme::Theme>) -> Entity,
+    child_rule: WidgetChildRule,
+    child_slots: &'static [&'static str],
+    spawn_default_fn: fn(&mut Commands, Option<&crate::theme::Theme>) -> WidgetSpawnResult,
     inspector_entries_fn: Option<fn(&InspectorEditorRegistry) -> Vec<InspectorEntryDescriptor>>,
     default_inspector_value_fn: Option<fn() -> Box<dyn bevy::reflect::PartialReflect>>,
     apply_props_fn: Option<
@@ -233,6 +270,8 @@ impl WidgetRegistration {
             category,
             name,
             type_id: TypeId::of::<T>(),
+            child_rule: WidgetChildRule::Any,
+            child_slots: &[],
             spawn_default_fn: B::spawn_default,
             inspector_entries_fn: None,
             default_inspector_value_fn: None,
@@ -249,6 +288,8 @@ impl WidgetRegistration {
             category,
             name,
             type_id: TypeId::of::<T>(),
+            child_rule: WidgetChildRule::Any,
+            child_slots: &[],
             spawn_default_fn: B::spawn_default,
             inspector_entries_fn: Some(widget_inspector_entries::<T>),
             default_inspector_value_fn: Some(default_widget_inspector_value::<T>),
@@ -268,6 +309,28 @@ impl WidgetRegistration {
         self.type_id
     }
 
+    pub fn child_rule(&self) -> WidgetChildRule {
+        self.child_rule
+    }
+
+    pub fn child_slot_at(&self, index: usize) -> Option<&'static str> {
+        match self.child_slots {
+            [] => None,
+            [slot] => Some(*slot),
+            slots => slots.get(index).copied(),
+        }
+    }
+
+    pub fn child_rule_config(mut self, rule: WidgetChildRule) -> Self {
+        self.child_rule = rule;
+        self
+    }
+
+    pub fn child_slots(mut self, slots: &'static [&'static str]) -> Self {
+        self.child_slots = slots;
+        self
+    }
+
     pub fn full_path(&self) -> String {
         format!("{}/{}", self.category, self.name)
     }
@@ -276,7 +339,7 @@ impl WidgetRegistration {
         &self,
         commands: &mut Commands,
         theme: Option<&crate::theme::Theme>,
-    ) -> Entity {
+    ) -> WidgetSpawnResult {
         (self.spawn_default_fn)(commands, theme)
     }
 
@@ -329,7 +392,10 @@ where
 }
 
 pub trait DefaultWidgetBuilder {
-    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> Entity;
+    fn spawn_default(
+        commands: &mut Commands,
+        theme: Option<&crate::theme::Theme>,
+    ) -> WidgetSpawnResult;
 }
 
 #[derive(Component)]
@@ -544,14 +610,14 @@ pub fn spawn_blueprint_widget_content(
     style: &WidgetStyle,
     props: &HashMap<String, String>,
     theme: Option<&crate::theme::Theme>,
-) -> Option<Entity> {
+) -> Option<WidgetSpawnResult> {
     let registration = registry.get_widget_by_path(widget_path)?;
-    let content = registration.spawn_default(commands, theme);
-    registration.apply_props(commands, content, props, inspector_registry, theme);
+    let spawn = registration.spawn_default(commands, theme);
+    registration.apply_props(commands, spawn.root, props, inspector_registry, theme);
     if style != &WidgetStyle::default() {
-        style.apply_to_entity(commands, content);
+        style.apply_to_entity(commands, spawn.root);
     }
-    Some(content)
+    Some(spawn)
 }
 
 fn widget_inspector_entries<T>(registry: &InspectorEditorRegistry) -> Vec<InspectorEntryDescriptor>
