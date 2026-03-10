@@ -1,5 +1,13 @@
 use arboard::Clipboard;
-use bevy::{input::{ButtonState, keyboard::{Key, KeyboardInput}}, text::TextLayoutInfo, ui::RelativeCursorPosition, window::PrimaryWindow};
+use bevy::{
+    input::{
+        ButtonState,
+        keyboard::{Key, KeyboardInput},
+    },
+    text::TextLayoutInfo,
+    ui::RelativeCursorPosition,
+    window::PrimaryWindow,
+};
 
 use crate::theme::resolve_theme_or_global;
 

@@ -128,7 +128,10 @@ fn apply_inspector_vec2_numeric_changes(
             let Some(field) = read_reflect_path_mut(value.as_mut(), &control.field_path) else {
                 continue;
             };
-            if !write_vec2_axis_field(field, input.axis, change.value as f32) {
+            let Some(value) = change.value.cast::<f32>() else {
+                continue;
+            };
+            if !write_vec2_axis_field(field, input.axis, value) {
                 continue;
             }
             store_widget_prop_change(
@@ -150,7 +153,10 @@ fn apply_inspector_vec2_numeric_changes(
         let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
             continue;
         };
-        if !write_vec2_axis_field(field, input.axis, change.value as f32) {
+        let Some(value) = change.value.cast::<f32>() else {
+            continue;
+        };
+        if !write_vec2_axis_field(field, input.axis, value) {
             continue;
         }
         apply_style_change(node_id, style, &mut document, &widget_registry);
@@ -173,11 +179,11 @@ fn sync_inspector_vec2_controls(
     let Some(style) = selected_node_style(&panel_state, &document) else {
         for control in vec2_controls.iter() {
             if let Ok(mut field) = value_fields.get_mut(control.x_input) {
-                field.value = 0.0;
+                field.value = Number::F32(0.0);
                 field.disabled = true;
             }
             if let Ok(mut field) = value_fields.get_mut(control.y_input) {
-                field.value = 0.0;
+                field.value = Number::F32(0.0);
                 field.disabled = true;
             }
         }
@@ -212,13 +218,11 @@ fn sync_inspector_vec2_controls(
         };
         if let Some(value) = read_vec2_field(style_field) {
             if let Ok(mut field) = value_fields.get_mut(control.x_input) {
-                field.kind = NumberKind::F32;
-                field.value = value.x as f64;
+                field.value = Number::F32(value.x);
                 field.disabled = false;
             }
             if let Ok(mut field) = value_fields.get_mut(control.y_input) {
-                field.kind = NumberKind::F32;
-                field.value = value.y as f64;
+                field.value = Number::F32(value.y);
                 field.disabled = false;
             }
         }

@@ -136,7 +136,9 @@ impl InspectorMetadataRegistry {
     }
 
     fn metadata_for<T: 'static>(&self) -> Option<Vec<InspectorFieldMetadata>> {
-        self.entries.get(&TypeId::of::<T>()).map(|metadata| metadata())
+        self.entries
+            .get(&TypeId::of::<T>())
+            .map(|metadata| metadata())
     }
 }
 

@@ -5,13 +5,13 @@ use bevy::prelude::*;
 use bevy::reflect::{PartialReflect, Reflect, ReflectRef, VariantType};
 
 use crate::inspector::{
-    inspector_metadata_for, InspectorEntryDescriptor, InspectorFieldDescriptor,
-    InspectorFieldEditor, InspectorFieldOptions, InspectorHeaderDescriptor,
-    InspectorTypeEditorResolver,
     INSPECTOR_DRIVER_BOOL, INSPECTOR_DRIVER_CHOICE, INSPECTOR_DRIVER_COLOR,
-    INSPECTOR_DRIVER_NUMBER, INSPECTOR_DRIVER_STRING, INSPECTOR_DRIVER_VAL,
-    INSPECTOR_DRIVER_VEC2,
+    INSPECTOR_DRIVER_NUMBER, INSPECTOR_DRIVER_STRING, INSPECTOR_DRIVER_VAL, INSPECTOR_DRIVER_VEC2,
+    InspectorEntryDescriptor, InspectorFieldDescriptor, InspectorFieldEditor,
+    InspectorFieldOptions, InspectorHeaderDescriptor, InspectorTypeEditorResolver,
+    inspector_metadata_for,
 };
+use crate::widget::input::Number;
 
 #[derive(Resource)]
 pub struct InspectorEditorRegistry {
@@ -38,6 +38,7 @@ impl Default for InspectorEditorRegistry {
         registry.register_type_driver::<usize>(INSPECTOR_DRIVER_NUMBER);
         registry.register_type_driver::<f32>(INSPECTOR_DRIVER_NUMBER);
         registry.register_type_driver::<f64>(INSPECTOR_DRIVER_NUMBER);
+        registry.register_type_driver::<Number>(INSPECTOR_DRIVER_NUMBER);
         registry.register_type_driver::<String>(INSPECTOR_DRIVER_STRING);
         registry.register_type_driver::<Val>(INSPECTOR_DRIVER_VAL);
         registry.register_type_driver::<bool>(INSPECTOR_DRIVER_BOOL);
@@ -57,10 +58,7 @@ impl InspectorEditorRegistry {
             .insert(type_id, InspectorFieldEditor::new(driver_id));
     }
 
-    pub fn register_type_resolver<T: 'static>(
-        &mut self,
-        resolver: InspectorTypeEditorResolver,
-    ) {
+    pub fn register_type_resolver<T: 'static>(&mut self, resolver: InspectorTypeEditorResolver) {
         let type_id = TypeId::of::<T>();
         self.type_editors.remove(&type_id);
         self.type_resolvers.insert(type_id, resolver);
@@ -171,7 +169,13 @@ impl InspectorEditorRegistry {
             };
             let child_path = format!("{field_path}.{child_name}");
             let child_label = humanize_field_name(child_name);
-            entries.extend(self.resolve_field_entries(&child_path, &child_label, child, None, true));
+            entries.extend(self.resolve_field_entries(
+                &child_path,
+                &child_label,
+                child,
+                None,
+                true,
+            ));
         }
         if auto_group_struct {
             entries.push(InspectorEntryDescriptor::EndHeader);

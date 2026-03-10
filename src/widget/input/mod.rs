@@ -13,7 +13,7 @@ pub use dropdown::{Dropdown, DropdownBuilder, DropdownChange, DropdownPlugin};
 
 pub mod number_field;
 pub use number_field::{
-    NumberField, NumberFieldBuilder, NumberFieldChange, NumberFieldPlugin, NumberKind,
+    Number, NumberField, NumberFieldBuilder, NumberFieldChange, NumberFieldPlugin, NumberKind,
     NumericFieldsPlugin,
 };
 

@@ -1,4 +1,7 @@
-use bevy::{input::mouse::{MouseScrollUnit, MouseWheel}, picking::hover::{HoverMap, Hovered}};
+use bevy::{
+    input::mouse::{MouseScrollUnit, MouseWheel},
+    picking::hover::{HoverMap, Hovered},
+};
 
 use super::*;
 

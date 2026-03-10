@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_vista_macros::generate_icons;
 
 /// Provides common editor icons
-/// 
+///
 /// # Examples
 /// ```rust
 /// use bevy::prelude::*;

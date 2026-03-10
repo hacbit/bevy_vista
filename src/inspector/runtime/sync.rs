@@ -4,16 +4,19 @@ use bevy::reflect::PartialReflect;
 use crate::editor::blueprint;
 use crate::editor::hierarchy;
 use crate::editor_resources::{VistaEditorSelection, VistaEditorViewOptions};
-use crate::inspector::{reflect_path_differs_from_default, InspectorEditorRegistry};
+use crate::inspector::{InspectorEditorRegistry, reflect_path_differs_from_default};
 use crate::theme::EditorTheme;
-use crate::widget::{FoldoutBuilder, LabelWidget, TextField, TextInputChange, TextInputSubmit, WidgetRegistry, WidgetStyle};
+use crate::widget::{
+    FoldoutBuilder, LabelWidget, TextField, TextInputChange, TextInputSubmit, WidgetRegistry,
+    WidgetStyle,
+};
 
 use super::{
-    build_property_entries, selected_node_style, selected_node_widget_default_reflect,
-    selected_node_widget_reflect, InspectorBindingTarget, InspectorContentRoot,
-    InspectorControlRegistry, InspectorFieldDecoration, InspectorFieldLabel, InspectorFieldRow,
-    InspectorNameField, InspectorPanelState, InspectorResetButton, InspectorWidgetSectionRoot,
-    InspectorWidgetSectionState,
+    InspectorBindingTarget, InspectorContentRoot, InspectorControlRegistry,
+    InspectorFieldDecoration, InspectorFieldLabel, InspectorFieldRow, InspectorNameField,
+    InspectorPanelState, InspectorResetButton, InspectorWidgetSectionRoot,
+    InspectorWidgetSectionState, build_property_entries, selected_node_style,
+    selected_node_widget_default_reflect, selected_node_widget_reflect,
 };
 
 pub(crate) fn sync_widget_property_section(
@@ -36,22 +39,46 @@ pub(crate) fn sync_widget_property_section(
 
     let (section_entity, mut section_node, mut section_state) = section.into_inner();
     let Some(node_id) = panel_state.selected_node else {
-        clear_section(&mut commands, section_entity, &children_query, &mut section_node, &mut section_state);
+        clear_section(
+            &mut commands,
+            section_entity,
+            &children_query,
+            &mut section_node,
+            &mut section_state,
+        );
         return;
     };
     let Some(node) = document.nodes.get(&node_id) else {
-        clear_section(&mut commands, section_entity, &children_query, &mut section_node, &mut section_state);
+        clear_section(
+            &mut commands,
+            section_entity,
+            &children_query,
+            &mut section_node,
+            &mut section_state,
+        );
         return;
     };
     let Some(registration) = widget_registry.get_widget_by_path(&node.widget_path) else {
-        clear_section(&mut commands, section_entity, &children_query, &mut section_node, &mut section_state);
+        clear_section(
+            &mut commands,
+            section_entity,
+            &children_query,
+            &mut section_node,
+            &mut section_state,
+        );
         section_state.selected_node = Some(node_id);
         section_state.widget_path = Some(node.widget_path.clone());
         return;
     };
     let entries = registration.inspector_entries(&inspector_registry);
     if entries.is_empty() {
-        clear_section(&mut commands, section_entity, &children_query, &mut section_node, &mut section_state);
+        clear_section(
+            &mut commands,
+            section_entity,
+            &children_query,
+            &mut section_node,
+            &mut section_state,
+        );
         section_state.selected_node = Some(node_id);
         section_state.widget_path = Some(node.widget_path.clone());
         return;
@@ -184,7 +211,10 @@ pub(crate) fn apply_inspector_name_changes(
         return;
     };
     let _ = blueprint::apply_blueprint_command(
-        blueprint::BlueprintCommand::SetNodeName { node: node_id, name },
+        blueprint::BlueprintCommand::SetNodeName {
+            node: node_id,
+            name,
+        },
         &mut document,
         &widget_registry,
     );
@@ -198,9 +228,16 @@ pub(crate) fn sync_inspector_field_markers(
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
     editor_theme: Res<EditorTheme>,
-    mut label_markers: Query<(&InspectorFieldDecoration, &mut LabelWidget), With<InspectorFieldLabel>>,
+    mut label_markers: Query<
+        (&InspectorFieldDecoration, &mut LabelWidget),
+        With<InspectorFieldLabel>,
+    >,
     mut row_markers: Query<
-        (&InspectorFieldDecoration, &mut BackgroundColor, &mut BorderColor),
+        (
+            &InspectorFieldDecoration,
+            &mut BackgroundColor,
+            &mut BorderColor,
+        ),
         With<InspectorFieldRow>,
     >,
     mut reset_buttons: Query<(&InspectorFieldDecoration, &mut Node), With<InspectorResetButton>>,
@@ -250,7 +287,11 @@ pub(crate) fn sync_inspector_field_markers(
             widget_default.as_deref(),
         );
         background.0 = if modified { modified_bg } else { Color::NONE };
-        *border = BorderColor::all(if modified { modified_border } else { Color::NONE });
+        *border = BorderColor::all(if modified {
+            modified_border
+        } else {
+            Color::NONE
+        });
     }
 
     for (decoration, mut node) in reset_buttons.iter_mut() {
@@ -277,7 +318,9 @@ pub(crate) fn inspector_field_is_modified(
 ) -> bool {
     match decoration.target {
         InspectorBindingTarget::Style => style
-            .map(|value| reflect_path_differs_from_default(value, default_style, &decoration.field_path))
+            .map(|value| {
+                reflect_path_differs_from_default(value, default_style, &decoration.field_path)
+            })
             .unwrap_or(false),
         InspectorBindingTarget::WidgetProp => match (widget_current, widget_default) {
             (Some(current), Some(default_value)) => {

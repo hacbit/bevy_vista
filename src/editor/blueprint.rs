@@ -571,12 +571,7 @@ fn compile_node_recursive(
     runtime_map.entity_to_node.insert(entity, node_id);
 
     for (index, child) in node.children.iter().copied().enumerate() {
-        let child_parent = resolve_child_parent_entity(
-            document,
-            &spawn,
-            child,
-            index,
-        );
+        let child_parent = resolve_child_parent_entity(document, &spawn, child, index);
         compile_node_recursive(
             commands,
             document,

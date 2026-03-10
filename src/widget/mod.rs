@@ -4,8 +4,8 @@ use std::any::TypeId;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::platform::collections::HashMap;
-use bevy::utils::TypeIdMap;
 use bevy::prelude::*;
+use bevy::utils::TypeIdMap;
 
 use crate as bevy_vista;
 use crate::inspector::{

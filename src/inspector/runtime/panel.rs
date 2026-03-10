@@ -6,8 +6,8 @@ use crate::editor::blueprint;
 use crate::editor_resources::VistaEditorViewOptions;
 use crate::icons::Icons;
 use crate::inspector::{
-    read_reflect_path, read_reflect_path_mut, InspectorEditorRegistry, InspectorEntryDescriptor,
-    InspectorFieldDescriptor, InspectorHeaderDescriptor,
+    InspectorEditorRegistry, InspectorEntryDescriptor, InspectorFieldDescriptor,
+    InspectorHeaderDescriptor, read_reflect_path, read_reflect_path_mut,
 };
 use crate::theme::{EditorTheme, Theme};
 use crate::widget::{
@@ -16,10 +16,10 @@ use crate::widget::{
 };
 
 use super::{
-    apply_style_change, clear_widget_prop_change, find_ancestor_with, InspectorBindingTarget,
-    InspectorContentRoot, InspectorControlRegistry, InspectorFieldDecoration, InspectorFieldLabel,
-    InspectorFieldRow, InspectorNameField, InspectorPanelState, InspectorResetButton,
-    InspectorWidgetSectionRoot, InspectorWidgetSectionState,
+    InspectorBindingTarget, InspectorContentRoot, InspectorControlRegistry,
+    InspectorFieldDecoration, InspectorFieldLabel, InspectorFieldRow, InspectorNameField,
+    InspectorPanelState, InspectorResetButton, InspectorWidgetSectionRoot,
+    InspectorWidgetSectionState, apply_style_change, clear_widget_prop_change, find_ancestor_with,
 };
 
 pub(crate) fn init_inspector_panel(
@@ -34,7 +34,9 @@ pub(crate) fn init_inspector_panel(
     let text_color = editor_theme.0.palette.on_surface;
     let font_size = editor_theme.0.typography.body_medium.font.font_size;
 
-    commands.entity(*inspector).insert(BackgroundColor(panel_bg));
+    commands
+        .entity(*inspector)
+        .insert(BackgroundColor(panel_bg));
 
     let name_label = commands
         .spawn((
@@ -96,13 +98,11 @@ pub(crate) fn init_inspector_panel(
             },
         ))
         .with_children(|parent| {
-            parent.spawn((
-                LabelBuilder::new()
-                    .text("Inline Style")
-                    .font_size(font_size)
-                    .color(text_color)
-                    .build(),
-            ));
+            parent.spawn((LabelBuilder::new()
+                .text("Inline Style")
+                .font_size(font_size)
+                .color(text_color)
+                .build(),));
             parent.spawn((
                 Node {
                     width: percent(100.0),
@@ -128,12 +128,15 @@ pub(crate) fn init_inspector_panel(
         .height(percent(100.0))
         .show_horizontal(false)
         .build_with_entities(&mut commands, [property_list_content]);
-    commands.entity(property_list).entry::<Node>().and_modify(|mut node| {
-        node.min_width = px(0.0);
-        node.min_height = px(0.0);
-        node.flex_grow = 1.0;
-        node.flex_shrink = 1.0;
-    });
+    commands
+        .entity(property_list)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.min_width = px(0.0);
+            node.min_height = px(0.0);
+            node.flex_grow = 1.0;
+            node.flex_shrink = 1.0;
+        });
 
     let content_root = commands
         .spawn((
@@ -334,9 +337,12 @@ pub(crate) fn spawn_property_row(
         })
         .observe(on_inspector_reset_button_click)
         .id();
-    commands.entity(reset_button).entry::<Node>().and_modify(|mut node| {
-        node.display = Display::None;
-    });
+    commands
+        .entity(reset_button)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.display = Display::None;
+        });
     let control_cluster = commands
         .spawn((
             Name::new(format!("Inspector {} Controls", field.label)),
@@ -350,15 +356,13 @@ pub(crate) fn spawn_property_row(
         .add_child(control)
         .with_children(|parent| {
             parent
-                .spawn((
-                    Node {
-                        width: px(38.0),
-                        min_width: px(38.0),
-                        justify_content: JustifyContent::FlexEnd,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                ))
+                .spawn((Node {
+                    width: px(38.0),
+                    min_width: px(38.0),
+                    justify_content: JustifyContent::FlexEnd,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },))
                 .add_child(reset_button);
         })
         .id();
@@ -410,7 +414,8 @@ pub(crate) fn on_inspector_reset_button_click(
 
     match decoration.target {
         InspectorBindingTarget::Style => {
-            let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
+            let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone())
+            else {
                 return;
             };
             let default_style = WidgetStyle::default();
@@ -418,14 +423,20 @@ pub(crate) fn on_inspector_reset_button_click(
             let Some(field) = read_reflect_path_mut(style_reflect, &decoration.field_path) else {
                 return;
             };
-            let Some(default_field) = read_reflect_path(&default_style, &decoration.field_path) else {
+            let Some(default_field) = read_reflect_path(&default_style, &decoration.field_path)
+            else {
                 return;
             };
             field.apply(default_field);
             apply_style_change(node_id, style, &mut document, &widget_registry);
         }
         InspectorBindingTarget::WidgetProp => {
-            clear_widget_prop_change(node_id, &decoration.field_path, &mut document, &widget_registry);
+            clear_widget_prop_change(
+                node_id,
+                &decoration.field_path,
+                &mut document,
+                &widget_registry,
+            );
         }
     }
 

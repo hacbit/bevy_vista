@@ -55,7 +55,10 @@ impl InspectorControlRegistry {
         theme: Option<&Theme>,
     ) -> Entity {
         let Some(driver) = self.registration_for(field.editor) else {
-            panic!("missing inspector control builder for {}", field.editor.driver_id);
+            panic!(
+                "missing inspector control builder for {}",
+                field.editor.driver_id
+            );
         };
         driver.build(commands, field, theme)
     }
@@ -123,8 +126,26 @@ pub enum InspectorBindingTarget {
 pub(super) struct InspectorControlBinding {
     pub(super) field_path: String,
     pub(super) editor: InspectorFieldEditor,
+    pub(super) target: InspectorBindingTarget,
+}
+
+#[derive(Component, Clone)]
+pub(super) struct InspectorNumberControl {
+    pub(super) field_path: String,
     pub(super) numeric_min: Option<f32>,
     pub(super) target: InspectorBindingTarget,
+    pub(super) value_input: Entity,
+    pub(super) kind_input: Entity,
+}
+
+#[derive(Component, Copy, Clone)]
+pub(super) struct InspectorNumberValueInput {
+    pub(super) owner: Entity,
+}
+
+#[derive(Component, Copy, Clone)]
+pub(super) struct InspectorNumberKindInput {
+    pub(super) owner: Entity,
 }
 
 #[derive(Component, Clone)]

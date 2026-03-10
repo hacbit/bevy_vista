@@ -141,7 +141,10 @@ fn apply_inspector_val_numeric_changes(
             let Some(field) = read_reflect_path_mut(value.as_mut(), &control.field_path) else {
                 continue;
             };
-            if !write_val_number_field(field, change.value as f32, control.numeric_min) {
+            let Some(value) = change.value.cast::<f32>() else {
+                continue;
+            };
+            if !write_val_number_field(field, value, control.numeric_min) {
                 continue;
             }
             store_widget_prop_change(
@@ -163,7 +166,10 @@ fn apply_inspector_val_numeric_changes(
         let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
             continue;
         };
-        if !write_val_number_field(field, change.value as f32, control.numeric_min) {
+        let Some(value) = change.value.cast::<f32>() else {
+            continue;
+        };
+        if !write_val_number_field(field, value, control.numeric_min) {
             continue;
         }
         apply_style_change(node_id, style, &mut document, &widget_registry);
@@ -258,7 +264,7 @@ fn sync_inspector_val_controls(
     let Some(style) = selected_node_style(&panel_state, &document) else {
         for control in val_controls.iter() {
             if let Ok(mut field) = value_fields.get_mut(control.value_input) {
-                field.value = 0.0;
+                field.value = Number::F32(0.0);
                 field.disabled = true;
             }
             if let Ok(mut dropdown) = unit_dropdowns.get_mut(control.unit_input) {
@@ -299,8 +305,7 @@ fn sync_inspector_val_controls(
         };
         if let Some((value, selected, number_enabled)) = read_val_field(style_field) {
             if let Ok(mut field) = value_fields.get_mut(control.value_input) {
-                field.kind = NumberKind::F32;
-                field.value = value as f64;
+                field.value = Number::F32(value);
                 field.disabled = !number_enabled;
             }
             if let Ok(mut dropdown) = unit_dropdowns.get_mut(control.unit_input) {

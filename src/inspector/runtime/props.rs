@@ -3,8 +3,8 @@ use bevy::reflect::PartialReflect;
 
 use crate::editor::blueprint;
 use crate::inspector::{
-    read_reflect_path, read_reflect_path_mut, InspectorEditorRegistry, InspectorEntryDescriptor,
-    InspectorFieldEditor,
+    InspectorEditorRegistry, InspectorEntryDescriptor, InspectorFieldEditor, read_reflect_path,
+    read_reflect_path_mut,
 };
 use crate::theme::Theme;
 use crate::widget::{WidgetRegistry, WidgetStyle};

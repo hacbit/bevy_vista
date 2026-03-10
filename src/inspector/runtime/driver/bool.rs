@@ -26,7 +26,6 @@ impl InspectorDriver for BoolInspectorDriver {
         commands.entity(entity).insert(InspectorControlBinding {
             field_path: field.field_path.clone(),
             editor: field.editor,
-            numeric_min: field.numeric_min,
             target: InspectorBindingTarget::Style,
         });
         entity
