@@ -426,8 +426,3 @@ fn find_descendant_with<T: Component>(
 fn default_step(kind: NumberKind) -> f64 {
     if kind.is_float() { 1.0 } else { 1.0 }
 }
-
-pub type F32Field = NumberField;
-pub type F32FieldBuilder = NumberFieldBuilder;
-pub type F32FieldChange = NumberFieldChange;
-pub type F32FieldPlugin = NumberFieldPlugin;

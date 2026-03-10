@@ -25,7 +25,7 @@ fn build_val_control(
     field: &InspectorFieldDescriptor,
     theme: Option<&Theme>,
 ) -> Entity {
-    let value_input = F32FieldBuilder::new()
+    let value_input = NumberFieldBuilder::new()
         .kind(NumberKind::F32)
         .width(px(84.0))
         .height(px(28.0))
@@ -104,7 +104,7 @@ impl InspectorDriver for ValInspectorDriver {
 fn apply_inspector_val_numeric_changes(
     options: Res<VistaEditorViewOptions>,
     panel_state: Res<InspectorPanelState>,
-    mut changes: MessageReader<F32FieldChange>,
+    mut changes: MessageReader<NumberFieldChange>,
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
     val_value_inputs: Query<&InspectorValValueInput>,
@@ -248,7 +248,7 @@ fn sync_inspector_val_controls(
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
     val_controls: Query<&InspectorValControl>,
-    mut value_fields: Query<&mut F32Field>,
+    mut value_fields: Query<&mut NumberField>,
     mut unit_dropdowns: Query<&mut Dropdown>,
 ) {
     if !panel_state.is_changed() && !document.is_changed() {

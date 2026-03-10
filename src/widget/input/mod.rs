@@ -13,8 +13,7 @@ pub use dropdown::{Dropdown, DropdownBuilder, DropdownChange, DropdownPlugin};
 
 pub mod numeric_fields;
 pub use numeric_fields::{
-    F32Field, F32FieldBuilder, F32FieldChange, F32FieldPlugin, NumberField, NumberFieldBuilder,
-    NumberFieldChange, NumberFieldPlugin, NumberKind,
+    NumberField, NumberFieldBuilder, NumberFieldChange, NumberFieldPlugin, NumberKind,
     NumericFieldsPlugin,
 };
 

@@ -578,7 +578,7 @@ fn apply_color_field_mode_changes(
 }
 
 fn apply_color_field_rgba_changes(
-    mut changes: MessageReader<F32FieldChange>,
+    mut changes: MessageReader<NumberFieldChange>,
     rgba_fields: Query<(&ColorFieldRgbaField, &ColorFieldOwnedBy)>,
     mut fields: Query<&mut ColorField>,
     mut out: MessageWriter<ColorFieldChange>,
@@ -617,7 +617,7 @@ fn sync_color_field_visuals(
     mut materials: ResMut<Assets<ColorFieldUiMaterial>>,
     material_nodes: Query<&MaterialNode<ColorFieldUiMaterial>>,
     mut nodes: Query<&mut Node>,
-    mut numeric_fields: Query<&mut F32Field>,
+    mut numeric_fields: Query<&mut NumberField>,
     mut dropdowns: Query<&mut Dropdown>,
 ) {
     for (field, parts, colors) in fields.iter() {
@@ -994,7 +994,7 @@ fn sync_color_field_popup_presence(
                     TextColor(colors.text.with_alpha(0.75)),
                 ))
                 .id();
-            let input = F32FieldBuilder::new()
+            let input = NumberFieldBuilder::new()
                 .kind(color_mode_number_kind(field.mode, index))
                 .width(px(52.0))
                 .height(px(26.0))

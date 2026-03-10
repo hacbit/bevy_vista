@@ -20,8 +20,9 @@ pub(super) use crate::inspector::{
 pub(super) use crate::theme::{EditorTheme, Theme};
 pub(super) use crate::widget::{
     Checkbox, CheckboxBuilder, CheckboxChange, ColorField, ColorFieldBuilder, ColorFieldChange,
-    Dropdown, DropdownBuilder, DropdownChange, F32Field, F32FieldBuilder, F32FieldChange,
-    NumberKind, TextField, TextFieldBuilder, TextInputChange, TextInputSubmit, WidgetRegistry,
+    Dropdown, DropdownBuilder, DropdownChange, NumberField, NumberFieldBuilder,
+    NumberFieldChange, NumberKind, TextField, TextFieldBuilder, TextInputChange,
+    TextInputSubmit, WidgetRegistry,
 };
 
 pub use driver::{InspectorDriver, InspectorDriverAppExt};

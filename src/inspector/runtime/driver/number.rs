@@ -22,7 +22,7 @@ impl InspectorDriver for NumberInspectorDriver {
         field: &InspectorFieldDescriptor,
         theme: Option<&Theme>,
     ) -> Entity {
-        let entity = F32FieldBuilder::new()
+        let entity = NumberFieldBuilder::new()
             .kind(NumberKind::F32)
             .width(px(132.0))
             .height(px(28.0))
@@ -74,7 +74,7 @@ impl InspectorDriver for NumberInspectorDriver {
 fn apply_inspector_number_driver_changes(
     options: Res<VistaEditorViewOptions>,
     panel_state: Res<InspectorPanelState>,
-    mut changes: MessageReader<F32FieldChange>,
+    mut changes: MessageReader<NumberFieldChange>,
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
     controls: Query<&InspectorControlBinding>,
@@ -150,7 +150,7 @@ fn sync_inspector_numeric_controls(
     widget_registry: Res<WidgetRegistry>,
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
-    mut numeric_controls: Query<(&InspectorControlBinding, &mut F32Field)>,
+    mut numeric_controls: Query<(&InspectorControlBinding, &mut NumberField)>,
 ) {
     if !panel_state.is_changed() && !document.is_changed() {
         return;

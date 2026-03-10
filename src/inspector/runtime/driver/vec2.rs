@@ -22,13 +22,13 @@ impl InspectorDriver for Vec2InspectorDriver {
         field: &InspectorFieldDescriptor,
         theme: Option<&Theme>,
     ) -> Entity {
-        let x_input = F32FieldBuilder::new()
+        let x_input = NumberFieldBuilder::new()
             .kind(NumberKind::F32)
             .width(px(72.0))
             .height(px(28.0))
             .disabled(true)
             .build(commands, theme);
-        let y_input = F32FieldBuilder::new()
+        let y_input = NumberFieldBuilder::new()
             .kind(NumberKind::F32)
             .width(px(72.0))
             .height(px(28.0))
@@ -91,7 +91,7 @@ impl InspectorDriver for Vec2InspectorDriver {
 fn apply_inspector_vec2_numeric_changes(
     options: Res<VistaEditorViewOptions>,
     panel_state: Res<InspectorPanelState>,
-    mut changes: MessageReader<F32FieldChange>,
+    mut changes: MessageReader<NumberFieldChange>,
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
     vec2_axis_inputs: Query<&InspectorVec2AxisInput>,
@@ -164,7 +164,7 @@ fn sync_inspector_vec2_controls(
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
     vec2_controls: Query<&InspectorVec2Control>,
-    mut value_fields: Query<&mut F32Field>,
+    mut value_fields: Query<&mut NumberField>,
 ) {
     if !panel_state.is_changed() && !document.is_changed() {
         return;
