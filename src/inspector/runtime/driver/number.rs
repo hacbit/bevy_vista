@@ -37,9 +37,9 @@ impl InspectorDriver for NumberInspectorDriver {
             .spawn((
                 Name::new(format!("Inspector {} Number Control", field.label)),
                 Node {
-                    width: px(186.0),
                     min_width: px(0.0),
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexEnd,
                     column_gap: px(6.0),
                     ..default()
                 },
