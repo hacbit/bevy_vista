@@ -8,270 +8,288 @@ pub struct NumericFieldsPlugin;
 
 impl Plugin for NumericFieldsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            I8FieldPlugin,
-            I16FieldPlugin,
-            I32FieldPlugin,
-            I64FieldPlugin,
-            IsizeFieldPlugin,
-            U8FieldPlugin,
-            U16FieldPlugin,
-            U32FieldPlugin,
-            U64FieldPlugin,
-            UsizeFieldPlugin,
-            F32FieldPlugin,
-            F64FieldPlugin,
-        ));
+        app.add_plugins(NumberFieldPlugin);
     }
 }
 
-macro_rules! define_numeric_field {
-    (
-        $module:ident,
-        $plugin:ident,
-        $field:ident,
-        $builder:ident,
-        $change:ident,
-        $marker:ident,
-        $path:literal,
-        $ty:ty,
-        $default_value:expr,
-        $default_step:expr,
-        $placeholder:literal,
-        $parser:ident
-    ) => {
-        mod $module {
-            use super::*;
+pub struct NumberFieldPlugin;
 
-            pub struct $plugin;
+impl Plugin for NumberFieldPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<NumberFieldChange>().add_systems(
+            PostUpdate,
+            (
+                normalize_number_fields,
+                sync_number_from_text_changes,
+                sync_number_from_text_submit,
+                sync_number_visuals,
+            )
+                .chain(),
+        );
+    }
+}
 
-            impl Plugin for $plugin {
-                fn build(&self, app: &mut App) {
-                    app.add_message::<$change>().add_systems(
-                        PostUpdate,
-                        (sync_from_text_changes, sync_from_text_submit, sync_visuals).chain(),
-                    );
+#[derive(Reflect, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum NumberKind {
+    I8,
+    I16,
+    I32,
+    I64,
+    Isize,
+    U8,
+    U16,
+    U32,
+    U64,
+    Usize,
+    F32,
+    F64,
+}
+
+impl NumberKind {
+    pub const fn is_float(self) -> bool {
+        matches!(self, Self::F32 | Self::F64)
+    }
+
+    pub const fn is_signed(self) -> bool {
+        matches!(
+            self,
+            Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::Isize | Self::F32 | Self::F64
+        )
+    }
+
+    pub const fn placeholder(self) -> &'static str {
+        if self.is_float() { "0.0" } else { "0" }
+    }
+
+    fn kind_range(self) -> (f64, f64) {
+        match self {
+            Self::I8 => (i8::MIN as f64, i8::MAX as f64),
+            Self::I16 => (i16::MIN as f64, i16::MAX as f64),
+            Self::I32 => (i32::MIN as f64, i32::MAX as f64),
+            Self::I64 => (i64::MIN as f64, i64::MAX as f64),
+            Self::Isize => (isize::MIN as f64, isize::MAX as f64),
+            Self::U8 => (u8::MIN as f64, u8::MAX as f64),
+            Self::U16 => (u16::MIN as f64, u16::MAX as f64),
+            Self::U32 => (u32::MIN as f64, u32::MAX as f64),
+            Self::U64 => (0.0, u64::MAX as f64),
+            Self::Usize => (0.0, usize::MAX as f64),
+            Self::F32 => (f32::MIN as f64, f32::MAX as f64),
+            Self::F64 => (f64::MIN, f64::MAX),
+        }
+    }
+
+    pub fn normalize(self, value: f64, min: Option<f64>, max: Option<f64>) -> f64 {
+        let (kind_min, kind_max) = self.kind_range();
+        let mut value = value.clamp(kind_min, kind_max);
+        if let Some(min) = min {
+            value = value.max(min);
+        }
+        if let Some(max) = max {
+            value = value.min(max);
+        }
+        if self.is_float() {
+            value
+        } else {
+            value.round()
+        }
+    }
+
+    pub fn parse_input(self, value: &str, min: Option<f64>, max: Option<f64>) -> Option<f64> {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let parsed = if self.is_float() {
+            if matches!(trimmed, "-" | "+" | "." | "-." | "+.") {
+                return None;
+            }
+            trimmed.parse::<f64>().ok()?
+        } else if self.is_signed() {
+            if matches!(trimmed, "-" | "+") {
+                return None;
+            }
+            trimmed.parse::<i128>().ok()? as f64
+        } else {
+            trimmed.parse::<u128>().ok()? as f64
+        };
+
+        Some(self.normalize(parsed, min, max))
+    }
+
+    pub fn format_value(self, value: f64) -> String {
+        let value = self.normalize(value, None, None);
+        match self {
+            Self::I8 => (value as i8).to_string(),
+            Self::I16 => (value as i16).to_string(),
+            Self::I32 => (value as i32).to_string(),
+            Self::I64 => (value as i64).to_string(),
+            Self::Isize => (value as isize).to_string(),
+            Self::U8 => (value as u8).to_string(),
+            Self::U16 => (value as u16).to_string(),
+            Self::U32 => (value as u32).to_string(),
+            Self::U64 => (value.max(0.0) as u64).to_string(),
+            Self::Usize => (value.max(0.0) as usize).to_string(),
+            Self::F32 => {
+                let value = value as f32;
+                if value.fract() == 0.0 {
+                    format!("{value:.1}")
+                } else {
+                    value.to_string()
                 }
             }
-
-            #[derive(Component, Reflect, Clone, Widget)]
-            #[widget($path, children = "exact(0)")]
-            #[builder($builder)]
-            pub struct $field {
-                pub value: $ty,
-                pub min: Option<$ty>,
-                pub max: Option<$ty>,
-                pub step: $ty,
-                pub disabled: bool,
-            }
-
-            impl Default for $field {
-                fn default() -> Self {
-                    Self {
-                        value: $default_value,
-                        min: None,
-                        max: None,
-                        step: $default_step,
-                        disabled: false,
-                    }
-                }
-            }
-
-            #[derive(Component)]
-            struct $marker;
-
-            #[derive(Message, EntityEvent)]
-            pub struct $change {
-                pub entity: Entity,
-                pub value: $ty,
-            }
-
-            #[derive(Clone)]
-            pub struct $builder {
-                field: $field,
-                width: Val,
-                height: Val,
-            }
-
-            impl Default for $builder {
-                fn default() -> Self {
-                    Self::new()
-                }
-            }
-
-            impl $builder {
-                pub fn new() -> Self {
-                    Self {
-                        field: $field::default(),
-                        width: px(120.0),
-                        height: px(28.0),
-                    }
-                }
-
-                pub fn value(mut self, value: $ty) -> Self {
-                    self.field.value = value;
-                    self
-                }
-
-                pub fn min(mut self, min: Option<$ty>) -> Self {
-                    self.field.min = min;
-                    self
-                }
-
-                pub fn max(mut self, max: Option<$ty>) -> Self {
-                    self.field.max = max;
-                    self
-                }
-
-                pub fn step(mut self, step: $ty) -> Self {
-                    self.field.step = step;
-                    self
-                }
-
-                pub fn disabled(mut self, disabled: bool) -> Self {
-                    self.field.disabled = disabled;
-                    self
-                }
-
-                pub fn width(mut self, width: Val) -> Self {
-                    self.width = width;
-                    self
-                }
-
-                pub fn height(mut self, height: Val) -> Self {
-                    self.height = height;
-                    self
-                }
-
-                pub fn build(self, commands: &mut Commands, theme: Option<&Theme>) -> Entity {
-                    let root = commands
-                        .spawn((
-                            Node {
-                                width: self.width,
-                                height: self.height,
-                                ..default()
-                            },
-                            self.field.clone(),
-                        ))
-                        .id();
-
-                    let input = build_numeric_text_field(
-                        commands,
-                        stringify!($field),
-                        self.field.value.to_string(),
-                        $placeholder,
-                        self.width,
-                        self.height,
-                        self.field.disabled,
-                        theme,
-                        $marker,
-                    );
-                    commands.entity(root).add_child(input);
-                    root
-                }
-            }
-
-            impl DefaultWidgetBuilder for $builder {
-                fn spawn_default(
-                    commands: &mut Commands,
-                    theme: Option<&crate::theme::Theme>,
-                ) -> WidgetSpawnResult {
-                    $builder::new().build(commands, theme).into()
-                }
-            }
-
-            fn sync_from_text_changes(
-                mut changes: MessageReader<TextInputChange>,
-                parents: Query<&ChildOf>,
-                inputs: Query<(), With<$marker>>,
-                mut fields: Query<&mut $field>,
-                mut out: MessageWriter<$change>,
-            ) {
-                for change in changes.read() {
-                    if inputs.get(change.entity).is_err() {
-                        continue;
-                    }
-                    let Some(field_entity) = parents
-                        .get(change.entity)
-                        .ok()
-                        .map(|parent| parent.parent())
-                    else {
-                        continue;
-                    };
-                    let Ok(mut field) = fields.get_mut(field_entity) else {
-                        continue;
-                    };
-                    let Some(value) = $parser(&change.value, field.min, field.max) else {
-                        continue;
-                    };
-                    if field.value != value {
-                        field.value = value;
-                        out.write($change {
-                            entity: field_entity,
-                            value,
-                        });
-                    }
-                }
-            }
-
-            fn sync_from_text_submit(
-                mut submits: MessageReader<TextInputSubmit>,
-                parents: Query<&ChildOf>,
-                inputs: Query<(), With<$marker>>,
-                fields: Query<&$field>,
-                mut text_fields: Query<&mut TextField>,
-            ) {
-                for submit in submits.read() {
-                    if inputs.get(submit.entity).is_err() {
-                        continue;
-                    }
-                    let Some(field_entity) = parents
-                        .get(submit.entity)
-                        .ok()
-                        .map(|parent| parent.parent())
-                    else {
-                        continue;
-                    };
-                    let Ok(field) = fields.get(field_entity) else {
-                        continue;
-                    };
-                    let Ok(mut text_field) = text_fields.get_mut(submit.entity) else {
-                        continue;
-                    };
-                    text_field.value = field.value.to_string();
-                    text_field.cursor_pos = text_field.value.chars().count();
-                    text_field.selection = None;
-                }
-            }
-
-            fn sync_visuals(
-                fields: Query<(&$field, &Children), Changed<$field>>,
-                children_query: Query<&Children>,
-                input_markers: Query<(), With<$marker>>,
-                mut text_fields: Query<&mut TextField>,
-            ) {
-                for (field, children) in fields.iter() {
-                    let Some(input) =
-                        find_descendant_with(children, &children_query, &input_markers)
-                    else {
-                        continue;
-                    };
-                    let Ok(mut text_field) = text_fields.get_mut(input) else {
-                        continue;
-                    };
-                    let next = field.value.to_string();
-                    if text_field.value != next {
-                        text_field.value = next;
-                        text_field.cursor_pos = text_field.value.chars().count();
-                        text_field.selection = None;
-                    }
-                    text_field.disabled = field.disabled;
+            Self::F64 => {
+                if value.fract() == 0.0 {
+                    format!("{value:.1}")
+                } else {
+                    value.to_string()
                 }
             }
         }
+    }
+}
 
-        pub use $module::{$builder, $change, $field, $plugin};
-    };
+#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
+#[widget("input/number_field", children = "exact(0)")]
+#[builder(NumberFieldBuilder)]
+pub struct NumberField {
+    pub kind: NumberKind,
+    pub value: f64,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub step: f64,
+    pub disabled: bool,
+}
+
+impl Default for NumberField {
+    fn default() -> Self {
+        Self {
+            kind: NumberKind::F32,
+            value: 0.0,
+            min: None,
+            max: None,
+            step: 1.0,
+            disabled: false,
+        }
+    }
+}
+
+#[derive(Component)]
+struct NumberFieldTextInput;
+
+#[derive(Message, EntityEvent)]
+pub struct NumberFieldChange {
+    pub entity: Entity,
+    pub value: f64,
+}
+
+#[derive(Clone)]
+pub struct NumberFieldBuilder {
+    field: NumberField,
+    width: Val,
+    height: Val,
+}
+
+impl Default for NumberFieldBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl NumberFieldBuilder {
+    pub fn new() -> Self {
+        Self {
+            field: NumberField::default(),
+            width: px(120.0),
+            height: px(28.0),
+        }
+    }
+
+    pub fn kind(mut self, kind: NumberKind) -> Self {
+        self.field.kind = kind;
+        self.field.value = kind.normalize(self.field.value, self.field.min, self.field.max);
+        self.field.step = default_step(kind);
+        self
+    }
+
+    pub fn value(mut self, value: impl Into<f64>) -> Self {
+        self.field.value = self
+            .field
+            .kind
+            .normalize(value.into(), self.field.min, self.field.max);
+        self
+    }
+
+    pub fn min(mut self, min: Option<impl Into<f64>>) -> Self {
+        self.field.min = min.map(Into::into);
+        self.field.value = self
+            .field
+            .kind
+            .normalize(self.field.value, self.field.min, self.field.max);
+        self
+    }
+
+    pub fn max(mut self, max: Option<impl Into<f64>>) -> Self {
+        self.field.max = max.map(Into::into);
+        self.field.value = self
+            .field
+            .kind
+            .normalize(self.field.value, self.field.min, self.field.max);
+        self
+    }
+
+    pub fn step(mut self, step: impl Into<f64>) -> Self {
+        self.field.step = step.into();
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.field.disabled = disabled;
+        self
+    }
+
+    pub fn width(mut self, width: Val) -> Self {
+        self.width = width;
+        self
+    }
+
+    pub fn height(mut self, height: Val) -> Self {
+        self.height = height;
+        self
+    }
+
+    pub fn build(self, commands: &mut Commands, theme: Option<&Theme>) -> Entity {
+        let root = commands
+            .spawn((
+                Node {
+                    width: self.width,
+                    height: self.height,
+                    ..default()
+                },
+                self.field.clone(),
+            ))
+            .id();
+
+        let input = build_numeric_text_field(
+            commands,
+            "NumberField",
+            self.field.kind.format_value(self.field.value),
+            self.field.kind.placeholder(),
+            self.width,
+            self.height,
+            self.field.disabled,
+            theme,
+            NumberFieldTextInput,
+        );
+        commands.entity(root).add_child(input);
+        root
+    }
+}
+
+impl DefaultWidgetBuilder for NumberFieldBuilder {
+    fn spawn_default(commands: &mut Commands, theme: Option<&crate::theme::Theme>) -> WidgetSpawnResult {
+        NumberFieldBuilder::new().build(commands, theme).into()
+    }
 }
 
 fn build_numeric_text_field<T: Component>(
@@ -299,6 +317,95 @@ fn build_numeric_text_field<T: Component>(
     input
 }
 
+fn sync_number_from_text_changes(
+    mut changes: MessageReader<TextInputChange>,
+    parents: Query<&ChildOf>,
+    inputs: Query<(), With<NumberFieldTextInput>>,
+    mut fields: Query<&mut NumberField>,
+    mut out: MessageWriter<NumberFieldChange>,
+) {
+    for change in changes.read() {
+        if inputs.get(change.entity).is_err() {
+            continue;
+        }
+        let Some(field_entity) = parents.get(change.entity).ok().map(|parent| parent.parent()) else {
+            continue;
+        };
+        let Ok(mut field) = fields.get_mut(field_entity) else {
+            continue;
+        };
+        let Some(value) = field.kind.parse_input(&change.value, field.min, field.max) else {
+            continue;
+        };
+        if field.value != value {
+            field.value = value;
+            out.write(NumberFieldChange {
+                entity: field_entity,
+                value,
+            });
+        }
+    }
+}
+
+fn sync_number_from_text_submit(
+    mut submits: MessageReader<TextInputSubmit>,
+    parents: Query<&ChildOf>,
+    inputs: Query<(), With<NumberFieldTextInput>>,
+    fields: Query<&NumberField>,
+    mut text_fields: Query<&mut TextField>,
+) {
+    for submit in submits.read() {
+        if inputs.get(submit.entity).is_err() {
+            continue;
+        }
+        let Some(field_entity) = parents.get(submit.entity).ok().map(|parent| parent.parent()) else {
+            continue;
+        };
+        let Ok(field) = fields.get(field_entity) else {
+            continue;
+        };
+        let Ok(mut text_field) = text_fields.get_mut(submit.entity) else {
+            continue;
+        };
+        text_field.value = field.kind.format_value(field.value);
+        text_field.cursor_pos = text_field.value.chars().count();
+        text_field.selection = None;
+    }
+}
+
+fn sync_number_visuals(
+    fields: Query<(&NumberField, &Children), Changed<NumberField>>,
+    children_query: Query<&Children>,
+    input_markers: Query<(), With<NumberFieldTextInput>>,
+    mut text_fields: Query<&mut TextField>,
+) {
+    for (field, children) in fields.iter() {
+        let Some(input) = find_descendant_with(children, &children_query, &input_markers) else {
+            continue;
+        };
+        let Ok(mut text_field) = text_fields.get_mut(input) else {
+            continue;
+        };
+        let next = field.kind.format_value(field.value);
+        if text_field.value != next {
+            text_field.value = next;
+            text_field.cursor_pos = text_field.value.chars().count();
+            text_field.selection = None;
+        }
+        text_field.disabled = field.disabled;
+        text_field.placeholder = field.kind.placeholder().to_owned();
+    }
+}
+
+fn normalize_number_fields(mut fields: Query<&mut NumberField, Changed<NumberField>>) {
+    for mut field in fields.iter_mut() {
+        let normalized = field.kind.normalize(field.value, field.min, field.max);
+        if field.value != normalized {
+            field.value = normalized;
+        }
+    }
+}
+
 fn find_descendant_with<T: Component>(
     children: &Children,
     children_query: &Query<&Children>,
@@ -316,230 +423,11 @@ fn find_descendant_with<T: Component>(
     None
 }
 
-fn clamp_numeric<T: PartialOrd + Copy>(mut value: T, min: Option<T>, max: Option<T>) -> T {
-    if let Some(min) = min
-        && value < min
-    {
-        value = min;
-    }
-    if let Some(max) = max
-        && value > max
-    {
-        value = max;
-    }
-    value
+fn default_step(kind: NumberKind) -> f64 {
+    if kind.is_float() { 1.0 } else { 1.0 }
 }
 
-fn parse_signed_numeric<T: std::str::FromStr + PartialOrd + Copy>(
-    value: &str,
-    min: Option<T>,
-    max: Option<T>,
-) -> Option<T> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() || matches!(trimmed, "-" | "+") {
-        return None;
-    }
-    trimmed
-        .parse::<T>()
-        .ok()
-        .map(|parsed| clamp_numeric(parsed, min, max))
-}
-
-fn parse_unsigned_numeric<T: std::str::FromStr + PartialOrd + Copy>(
-    value: &str,
-    min: Option<T>,
-    max: Option<T>,
-) -> Option<T> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    trimmed
-        .parse::<T>()
-        .ok()
-        .map(|parsed| clamp_numeric(parsed, min, max))
-}
-
-fn parse_float_numeric<T: std::str::FromStr + PartialOrd + Copy>(
-    value: &str,
-    min: Option<T>,
-    max: Option<T>,
-) -> Option<T> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() || matches!(trimmed, "-" | "+" | "." | "-." | "+.") {
-        return None;
-    }
-    trimmed
-        .parse::<T>()
-        .ok()
-        .map(|parsed| clamp_numeric(parsed, min, max))
-}
-
-define_numeric_field!(
-    i8_field,
-    I8FieldPlugin,
-    I8Field,
-    I8FieldBuilder,
-    I8FieldChange,
-    I8FieldTextInput,
-    "input/i8_field",
-    i8,
-    0,
-    1,
-    "0",
-    parse_signed_numeric
-);
-define_numeric_field!(
-    i16_field,
-    I16FieldPlugin,
-    I16Field,
-    I16FieldBuilder,
-    I16FieldChange,
-    I16FieldTextInput,
-    "input/i16_field",
-    i16,
-    0,
-    1,
-    "0",
-    parse_signed_numeric
-);
-define_numeric_field!(
-    i32_field,
-    I32FieldPlugin,
-    I32Field,
-    I32FieldBuilder,
-    I32FieldChange,
-    I32FieldTextInput,
-    "input/i32_field",
-    i32,
-    0,
-    1,
-    "0",
-    parse_signed_numeric
-);
-define_numeric_field!(
-    i64_field,
-    I64FieldPlugin,
-    I64Field,
-    I64FieldBuilder,
-    I64FieldChange,
-    I64FieldTextInput,
-    "input/i64_field",
-    i64,
-    0,
-    1,
-    "0",
-    parse_signed_numeric
-);
-define_numeric_field!(
-    isize_field,
-    IsizeFieldPlugin,
-    IsizeField,
-    IsizeFieldBuilder,
-    IsizeFieldChange,
-    IsizeFieldTextInput,
-    "input/isize_field",
-    isize,
-    0,
-    1,
-    "0",
-    parse_signed_numeric
-);
-define_numeric_field!(
-    u8_field,
-    U8FieldPlugin,
-    U8Field,
-    U8FieldBuilder,
-    U8FieldChange,
-    U8FieldTextInput,
-    "input/u8_field",
-    u8,
-    0,
-    1,
-    "0",
-    parse_unsigned_numeric
-);
-define_numeric_field!(
-    u16_field,
-    U16FieldPlugin,
-    U16Field,
-    U16FieldBuilder,
-    U16FieldChange,
-    U16FieldTextInput,
-    "input/u16_field",
-    u16,
-    0,
-    1,
-    "0",
-    parse_unsigned_numeric
-);
-define_numeric_field!(
-    u32_field,
-    U32FieldPlugin,
-    U32Field,
-    U32FieldBuilder,
-    U32FieldChange,
-    U32FieldTextInput,
-    "input/u32_field",
-    u32,
-    0,
-    1,
-    "0",
-    parse_unsigned_numeric
-);
-define_numeric_field!(
-    u64_field,
-    U64FieldPlugin,
-    U64Field,
-    U64FieldBuilder,
-    U64FieldChange,
-    U64FieldTextInput,
-    "input/u64_field",
-    u64,
-    0,
-    1,
-    "0",
-    parse_unsigned_numeric
-);
-define_numeric_field!(
-    usize_field,
-    UsizeFieldPlugin,
-    UsizeField,
-    UsizeFieldBuilder,
-    UsizeFieldChange,
-    UsizeFieldTextInput,
-    "input/usize_field",
-    usize,
-    0,
-    1,
-    "0",
-    parse_unsigned_numeric
-);
-define_numeric_field!(
-    f32_field,
-    F32FieldPlugin,
-    F32Field,
-    F32FieldBuilder,
-    F32FieldChange,
-    F32FieldTextInput,
-    "input/f32_field",
-    f32,
-    0.0,
-    1.0,
-    "0.0",
-    parse_float_numeric
-);
-define_numeric_field!(
-    f64_field,
-    F64FieldPlugin,
-    F64Field,
-    F64FieldBuilder,
-    F64FieldChange,
-    F64FieldTextInput,
-    "input/f64_field",
-    f64,
-    0.0,
-    1.0,
-    "0.0",
-    parse_float_numeric
-);
+pub type F32Field = NumberField;
+pub type F32FieldBuilder = NumberFieldBuilder;
+pub type F32FieldChange = NumberFieldChange;
+pub type F32FieldPlugin = NumberFieldPlugin;

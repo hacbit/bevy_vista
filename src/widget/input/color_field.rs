@@ -597,7 +597,8 @@ fn apply_color_field_rgba_changes(
         let ranges = color_mode_ranges(field.mode);
         values[channel.index] = change
             .value
-            .clamp(ranges[channel.index].0, ranges[channel.index].1);
+            .clamp(ranges[channel.index].0 as f64, ranges[channel.index].1 as f64)
+            as f32;
         let next_color = color_from_mode_components(field.mode, values);
         if next_color != field.color {
             field.color = next_color;
@@ -683,9 +684,10 @@ fn sync_color_field_visuals(
                 continue;
             };
             if let Ok(mut numeric) = numeric_fields.get_mut(*field_entity) {
-                numeric.value = values[index];
-                numeric.min = Some(ranges[index].0);
-                numeric.max = Some(ranges[index].1);
+                numeric.kind = color_mode_number_kind(field.mode, index);
+                numeric.value = values[index] as f64;
+                numeric.min = Some(ranges[index].0 as f64);
+                numeric.max = Some(ranges[index].1 as f64);
                 numeric.disabled = field.disabled;
             }
         }
@@ -993,6 +995,7 @@ fn sync_color_field_popup_presence(
                 ))
                 .id();
             let input = F32FieldBuilder::new()
+                .kind(color_mode_number_kind(field.mode, index))
                 .width(px(52.0))
                 .height(px(26.0))
                 .value(rgba_values[index])
@@ -1336,6 +1339,13 @@ fn color_mode_labels(mode: ColorFieldMode) -> [&'static str; 4] {
     match mode {
         ColorFieldMode::Rgba | ColorFieldMode::RgbaU8 => ["R", "G", "B", "A"],
         ColorFieldMode::Hsla => ["H", "S", "L", "A"],
+    }
+}
+
+fn color_mode_number_kind(mode: ColorFieldMode, index: usize) -> NumberKind {
+    match mode {
+        ColorFieldMode::RgbaU8 if index < 3 => NumberKind::U8,
+        _ => NumberKind::F32,
     }
 }
 
