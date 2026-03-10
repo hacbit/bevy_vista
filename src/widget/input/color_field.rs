@@ -1,4 +1,9 @@
-use bevy::{asset::{load_internal_asset, uuid_handle}, ecs::query::QueryFilter, render::render_resource::AsBindGroup, shader::ShaderRef};
+use bevy::{
+    asset::{load_internal_asset, uuid_handle},
+    ecs::query::QueryFilter,
+    render::render_resource::AsBindGroup,
+    shader::ShaderRef,
+};
 
 use crate::theme::resolve_theme_or_global;
 
@@ -595,10 +600,10 @@ fn apply_color_field_rgba_changes(
         }
         let mut values = color_mode_components(field.color, field.mode);
         let ranges = color_mode_ranges(field.mode);
-        values[channel.index] = change
-            .value
-            .clamp(ranges[channel.index].0 as f64, ranges[channel.index].1 as f64)
-            as f32;
+        let Some(value) = change.value.cast::<f32>() else {
+            continue;
+        };
+        values[channel.index] = value.clamp(ranges[channel.index].0, ranges[channel.index].1);
         let next_color = color_from_mode_components(field.mode, values);
         if next_color != field.color {
             field.color = next_color;
@@ -684,10 +689,13 @@ fn sync_color_field_visuals(
                 continue;
             };
             if let Ok(mut numeric) = numeric_fields.get_mut(*field_entity) {
-                numeric.kind = color_mode_number_kind(field.mode, index);
-                numeric.value = values[index] as f64;
-                numeric.min = Some(ranges[index].0 as f64);
-                numeric.max = Some(ranges[index].1 as f64);
+                numeric.value = Number::F64(values[index] as f64).cast_to(
+                    color_mode_number_kind(field.mode, index),
+                    None,
+                    None,
+                );
+                numeric.min = Some(Number::F32(ranges[index].0));
+                numeric.max = Some(Number::F32(ranges[index].1));
                 numeric.disabled = field.disabled;
             }
         }

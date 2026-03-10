@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use bevy::reflect::{DynamicEnum, PartialReflect, ReflectMut, ReflectRef, VariantType};
 
 use crate::inspector::{
-    InspectorDriverId, InspectorEntryDescriptor, InspectorFieldEditor, INSPECTOR_DRIVER_BOOL,
-    INSPECTOR_DRIVER_CHOICE, INSPECTOR_DRIVER_COLOR, INSPECTOR_DRIVER_NUMBER,
-    INSPECTOR_DRIVER_STRING, INSPECTOR_DRIVER_VAL, INSPECTOR_DRIVER_VEC2,
+    INSPECTOR_DRIVER_BOOL, INSPECTOR_DRIVER_CHOICE, INSPECTOR_DRIVER_COLOR,
+    INSPECTOR_DRIVER_NUMBER, INSPECTOR_DRIVER_STRING, INSPECTOR_DRIVER_VAL, INSPECTOR_DRIVER_VEC2,
+    InspectorDriverId, InspectorEntryDescriptor, InspectorFieldEditor,
 };
 use crate::theme::Theme;
-use crate::widget::input::NumberKind;
+use crate::widget::input::{Number, NumberKind};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InspectorValUnit {
@@ -46,7 +46,9 @@ pub fn write_color_field(field: &mut dyn PartialReflect, color: Color) -> bool {
 }
 
 pub fn number_kind_for_field(field: &dyn PartialReflect) -> Option<NumberKind> {
-    if field.try_downcast_ref::<i8>().is_some() {
+    if let Some(value) = field.try_downcast_ref::<Number>() {
+        Some(value.kind())
+    } else if field.try_downcast_ref::<i8>().is_some() {
         Some(NumberKind::I8)
     } else if field.try_downcast_ref::<i16>().is_some() {
         Some(NumberKind::I16)
@@ -66,7 +68,9 @@ pub fn number_kind_for_field(field: &dyn PartialReflect) -> Option<NumberKind> {
         Some(NumberKind::U64)
     } else if field.try_downcast_ref::<usize>().is_some() {
         Some(NumberKind::Usize)
-    } else if field.try_downcast_ref::<f32>().is_some() || field.try_downcast_ref::<Rot2>().is_some() {
+    } else if field.try_downcast_ref::<f32>().is_some()
+        || field.try_downcast_ref::<Rot2>().is_some()
+    {
         Some(NumberKind::F32)
     } else if field.try_downcast_ref::<f64>().is_some() {
         Some(NumberKind::F64)
@@ -75,76 +79,150 @@ pub fn number_kind_for_field(field: &dyn PartialReflect) -> Option<NumberKind> {
     }
 }
 
-pub fn read_number_field(field: &dyn PartialReflect) -> Option<f64> {
-    if let Some(value) = field.try_downcast_ref::<i8>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<i16>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<i32>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<i64>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<isize>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<u8>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<u16>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<u32>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<u64>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<usize>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<f32>() {
-        Some(*value as f64)
-    } else if let Some(value) = field.try_downcast_ref::<f64>() {
+pub fn read_number_field(field: &dyn PartialReflect) -> Option<Number> {
+    if let Some(value) = field.try_downcast_ref::<Number>() {
         Some(*value)
+    } else if let Some(value) = field.try_downcast_ref::<i8>() {
+        Some(Number::I8(*value))
+    } else if let Some(value) = field.try_downcast_ref::<i16>() {
+        Some(Number::I16(*value))
+    } else if let Some(value) = field.try_downcast_ref::<i32>() {
+        Some(Number::I32(*value))
+    } else if let Some(value) = field.try_downcast_ref::<i64>() {
+        Some(Number::I64(*value))
+    } else if let Some(value) = field.try_downcast_ref::<isize>() {
+        Some(Number::Isize(*value))
+    } else if let Some(value) = field.try_downcast_ref::<u8>() {
+        Some(Number::U8(*value))
+    } else if let Some(value) = field.try_downcast_ref::<u16>() {
+        Some(Number::U16(*value))
+    } else if let Some(value) = field.try_downcast_ref::<u32>() {
+        Some(Number::U32(*value))
+    } else if let Some(value) = field.try_downcast_ref::<u64>() {
+        Some(Number::U64(*value))
+    } else if let Some(value) = field.try_downcast_ref::<usize>() {
+        Some(Number::Usize(*value))
+    } else if let Some(value) = field.try_downcast_ref::<f32>() {
+        Some(Number::F32(*value))
+    } else if let Some(value) = field.try_downcast_ref::<f64>() {
+        Some(Number::F64(*value))
     } else {
-        Some(field.try_downcast_ref::<Rot2>()?.as_degrees() as f64)
+        Some(Number::F32(field.try_downcast_ref::<Rot2>()?.as_degrees()))
     }
+}
+
+pub fn parse_number_for_field(
+    field: &dyn PartialReflect,
+    raw: &str,
+    numeric_min: Option<f32>,
+) -> Option<Number> {
+    let min = numeric_min.map(Number::F32);
+    if let Some(value) = Number::deserialize(raw, min, None) {
+        return Some(value);
+    }
+    let kind = number_kind_for_field(field)?;
+    Number::parse_as(kind, raw, min, None)
 }
 
 pub fn write_number_field(
     field: &mut dyn PartialReflect,
-    value: f64,
+    value: Number,
     numeric_min: Option<f32>,
 ) -> bool {
-    let min = numeric_min.map(|min| min as f64);
+    let min = numeric_min.map(Number::F32);
+    if let Some(target) = field.try_downcast_mut::<Number>() {
+        *target = value.cast_to(value.kind(), min, None);
+        return true;
+    }
+
     let Some(kind) = number_kind_for_field(field) else {
         return false;
     };
-    let value = kind.normalize(value, min, None);
+    let value = value.cast_to(kind, min, None);
     if let Some(target) = field.try_downcast_mut::<i8>() {
-        *target = value as i8;
+        *target = match value {
+            Number::I8(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<i16>() {
-        *target = value as i16;
+        *target = match value {
+            Number::I16(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<i32>() {
-        *target = value as i32;
+        *target = match value {
+            Number::I32(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<i64>() {
-        *target = value as i64;
+        *target = match value {
+            Number::I64(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<isize>() {
-        *target = value as isize;
+        *target = match value {
+            Number::Isize(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<u8>() {
-        *target = value as u8;
+        *target = match value {
+            Number::U8(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<u16>() {
-        *target = value as u16;
+        *target = match value {
+            Number::U16(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<u32>() {
-        *target = value as u32;
+        *target = match value {
+            Number::U32(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<u64>() {
-        *target = value as u64;
+        *target = match value {
+            Number::U64(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<usize>() {
-        *target = value as usize;
+        *target = match value {
+            Number::Usize(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<f32>() {
-        *target = value as f32;
+        *target = match value {
+            Number::F32(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<f64>() {
-        *target = value;
+        *target = match value {
+            Number::F64(value) => value,
+            _ => unreachable!(),
+        };
     } else if let Some(target) = field.try_downcast_mut::<Rot2>() {
-        *target = Rot2::degrees(value as f32);
+        *target = match value {
+            Number::F32(value) => Rot2::degrees(value),
+            _ => unreachable!(),
+        };
     } else {
         return false;
     }
     true
+}
+
+pub fn write_number_kind_field(
+    field: &mut dyn PartialReflect,
+    kind: NumberKind,
+    numeric_min: Option<f32>,
+) -> bool {
+    let min = numeric_min.map(Number::F32);
+    let Some(current) = read_number_field(field) else {
+        return false;
+    };
+    if field.try_downcast_ref::<Number>().is_none() {
+        return false;
+    }
+    write_number_field(field, current.cast_to(kind, min, None), numeric_min)
 }
 
 pub fn val_unit_options() -> Vec<String> {
@@ -167,7 +245,11 @@ pub fn read_val_field(field: &dyn PartialReflect) -> Option<(f32, usize, bool)> 
     Some((value, val_unit_index(unit), unit != InspectorValUnit::Auto))
 }
 
-pub fn write_val_number_field(field: &mut dyn PartialReflect, value: f32, numeric_min: Option<f32>) -> bool {
+pub fn write_val_number_field(
+    field: &mut dyn PartialReflect,
+    value: f32,
+    numeric_min: Option<f32>,
+) -> bool {
     let value = numeric_min.map_or(value, |min| value.max(min));
     let Some(target) = field.try_downcast_mut::<Val>() else {
         return false;
@@ -184,7 +266,11 @@ pub fn write_val_number_field(field: &mut dyn PartialReflect, value: f32, numeri
     true
 }
 
-pub fn write_val_unit_field(field: &mut dyn PartialReflect, selected: usize, numeric_min: Option<f32>) -> bool {
+pub fn write_val_unit_field(
+    field: &mut dyn PartialReflect,
+    selected: usize,
+    numeric_min: Option<f32>,
+) -> bool {
     let Some(target) = field.try_downcast_mut::<Val>() else {
         return false;
     };
@@ -429,7 +515,7 @@ pub fn serialize_editor_value(
     theme: Option<&Theme>,
 ) -> Option<String> {
     match driver_id(editor) {
-        INSPECTOR_DRIVER_NUMBER => Some(read_number_field(field)?.to_string()),
+        INSPECTOR_DRIVER_NUMBER => Some(read_number_field(field)?.serialize()),
         INSPECTOR_DRIVER_STRING => read_string_field(field),
         INSPECTOR_DRIVER_BOOL => Some(read_bool_field(field)?.to_string()),
         INSPECTOR_DRIVER_CHOICE => {
@@ -457,9 +543,7 @@ pub fn apply_serialized_editor_value(
     theme: Option<&Theme>,
 ) -> bool {
     match driver_id(editor) {
-        INSPECTOR_DRIVER_NUMBER => raw
-            .parse::<f64>()
-            .ok()
+        INSPECTOR_DRIVER_NUMBER => parse_number_for_field(field, raw, numeric_min)
             .is_some_and(|value| write_number_field(field, value, numeric_min)),
         INSPECTOR_DRIVER_STRING => write_string_field(field, raw.to_owned()),
         INSPECTOR_DRIVER_BOOL => raw
