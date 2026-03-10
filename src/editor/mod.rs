@@ -5,15 +5,17 @@ use bevy::{prelude::*, state::state::FreelyMutableState};
 
 pub(crate) mod blueprint;
 mod foldable;
-mod hierarchy;
-mod inspector;
+pub(crate) mod hierarchy;
 mod title_draggable;
 mod toolbar;
 mod viewport;
 mod widget_lib;
 
+pub use crate::inspector::runtime::{InspectorBindingTarget, InspectorDriver, InspectorDriverAppExt};
+
 use crate::{
     grid::GridUiMaterial,
+    inspector::runtime as inspector,
     prelude::*,
     theme::{EditorTheme, Theme, ThemeScope},
     widget::{SplitViewAxis, SplitViewBuilder},
@@ -21,6 +23,8 @@ use crate::{
 
 pub(crate) fn init_editor_ui(app: &mut App) {
     use VistaEditorInitPhase::*;
+
+    inspector::install_inspector_drivers(app);
 
     app.add_plugins(UiMaterialPlugin::<GridUiMaterial>::default())
         .init_resource::<widget_lib::WidgetLibDragState>()
@@ -30,7 +34,6 @@ pub(crate) fn init_editor_ui(app: &mut App) {
         .init_resource::<toolbar::EditorDocumentToolbarState>()
         .init_resource::<crate::inspector::InspectorEditorRegistry>()
         .init_resource::<inspector::InspectorPanelState>()
-        .init_resource::<inspector::InspectorControlRegistry>()
         .init_resource::<hierarchy::HierarchyState>()
         .init_resource::<hierarchy::HierarchyDragState>()
         .init_resource::<hierarchy::HierarchyTreeCache>()
@@ -92,20 +95,8 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                     .chain(),
                 (
                     inspector::apply_inspector_name_changes,
-                    inspector::apply_inspector_numeric_changes,
-                    inspector::apply_inspector_string_changes,
-                    inspector::apply_inspector_dropdown_changes,
-                    inspector::apply_inspector_checkbox_changes,
-                    inspector::apply_inspector_color_changes,
                     inspector::refresh_inspector_panel,
                     inspector::sync_widget_property_section,
-                    inspector::sync_inspector_numeric_controls,
-                    inspector::sync_inspector_string_controls,
-                    inspector::sync_inspector_dropdown_controls,
-                    inspector::sync_inspector_checkbox_controls,
-                    inspector::sync_inspector_color_controls,
-                    inspector::sync_inspector_val_controls,
-                    inspector::sync_inspector_vec2_controls,
                     inspector::sync_inspector_field_markers,
                 )
                     .chain(),
@@ -130,7 +121,7 @@ pub(crate) fn init_editor_ui(app: &mut App) {
 }
 
 #[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
-enum VistaEditorInitPhase {
+pub(crate) enum VistaEditorInitPhase {
     Pending,
     /// Only ui nodes and some required marker component.
     BasicLayout,

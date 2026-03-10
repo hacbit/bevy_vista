@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Widget, Reflect, Clone, Default)]
+#[derive(Widget, Reflect, Component, Clone, Default)]
 #[widget("common/node", children = "any")]
 #[builder(NodeBuilder)]
 pub struct NodeWidget;

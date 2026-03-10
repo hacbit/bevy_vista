@@ -9,8 +9,7 @@ use bevy::prelude::*;
 
 use crate as bevy_vista;
 use crate::inspector::{
-    InspectorEditorRegistry, InspectorEntryDescriptor, ShowInInspector as ShowInInspectorTrait,
-    apply_serialized_editor_value,
+    InspectorEditorRegistry, InspectorEntryDescriptor, apply_serialized_editor_value,
 };
 use crate::prelude::*;
 
@@ -107,19 +106,6 @@ impl WidgetRegistry {
 
     fn register_widgets(&mut self) {
         __macro_exports::register_widgets(self);
-        self.enable_inspector::<common::button::ButtonWidget>();
-        self.enable_inspector::<common::image::ImageWidget>();
-        self.enable_inspector::<common::label::LabelWidget>();
-        self.enable_inspector::<input::checkbox::Checkbox>();
-        self.enable_inspector::<input::color_field::ColorField>();
-        self.enable_inspector::<input::dropdown::Dropdown>();
-        self.enable_inspector::<input::text_field::TextField>();
-        self.enable_inspector::<layout::divider::Divider>();
-        self.enable_inspector::<layout::foldout::Foldout>();
-        self.enable_inspector::<layout::list_view::ListView>();
-        self.enable_inspector::<layout::scroll_view::ScrollView>();
-        self.enable_inspector::<layout::split_view::SplitView>();
-        self.enable_inspector::<layout::tree_view::TreeView>();
     }
 
     pub fn register<T>(&mut self)
@@ -129,19 +115,6 @@ impl WidgetRegistry {
         if self.register_internal(TypeId::of::<T>(), T::get_widget_registration) {
             T::register_widget_dependencies(self);
         }
-    }
-
-    pub fn enable_inspector<T>(&mut self)
-    where
-        T: Widget + Component + Reflect + Default + Clone + ShowInInspectorTrait + 'static,
-    {
-        let type_id = TypeId::of::<T>();
-        let Some(registration) = self.registrations.get_mut(&type_id) else {
-            return;
-        };
-        registration.inspector_entries_fn = Some(widget_inspector_entries::<T>);
-        registration.default_inspector_value_fn = Some(default_widget_inspector_value::<T>);
-        registration.apply_props_fn = Some(apply_widget_props::<T>);
     }
 
     fn register_internal(
@@ -281,7 +254,7 @@ impl WidgetRegistration {
 
     pub fn of_with_inspector<T, B>(category: &'static str, name: &'static str) -> Self
     where
-        T: Widget + Component + Reflect + Default + Clone + ShowInInspectorTrait + 'static,
+        T: Widget + Component + Reflect + Default + Clone + 'static,
         B: DefaultWidgetBuilder + 'static,
     {
         Self {
@@ -622,7 +595,7 @@ pub fn spawn_blueprint_widget_content(
 
 fn widget_inspector_entries<T>(registry: &InspectorEditorRegistry) -> Vec<InspectorEntryDescriptor>
 where
-    T: Reflect + Default + ShowInInspectorTrait + 'static,
+    T: Reflect + Default + 'static,
 {
     registry.entries_for::<T>()
 }
@@ -641,7 +614,7 @@ fn apply_widget_props<T>(
     registry: &InspectorEditorRegistry,
     theme: Option<&crate::theme::Theme>,
 ) where
-    T: Component + Reflect + Default + Clone + ShowInInspectorTrait + 'static,
+    T: Component + Reflect + Default + Clone + 'static,
 {
     let mut value = T::default();
     let entries = registry.entries_for::<T>();
@@ -670,6 +643,21 @@ mod tests {
     fn widget_registration_exposes_button_inspector_entries() {
         let widget_registry = WidgetRegistry::new();
         let inspector_registry = InspectorEditorRegistry::default();
+        assert!(
+            !inspector_registry
+                .entries_for::<common::button::ButtonWidget>()
+                .is_empty(),
+            "button inspector entries should exist before widget registration is queried"
+        );
+        let direct_registration =
+            <common::button::ButtonWidget as GetWidgetRegistration>::get_widget_registration();
+        assert!(
+            direct_registration
+                .inspector_entries(&inspector_registry)
+                .len()
+                > 0,
+            "button registration returned by derive should carry inspector support"
+        );
         let registration = widget_registry
             .get_widget_by_path("common/button")
             .expect("button registration should exist");
@@ -678,6 +666,21 @@ mod tests {
                 .inspector_entries(&inspector_registry)
                 .is_empty(),
             "button widget should expose inspector entries"
+        );
+    }
+
+    #[test]
+    fn widget_registration_exposes_number_field_inspector_entries_without_manual_whitelist() {
+        let widget_registry = WidgetRegistry::new();
+        let inspector_registry = InspectorEditorRegistry::default();
+        let registration = widget_registry
+            .get_widget_by_path("input/number_field")
+            .expect("number field registration should exist");
+        assert!(
+            !registration
+                .inspector_entries(&inspector_registry)
+                .is_empty(),
+            "number field should expose inspector entries from automatic widget registration"
         );
     }
 }

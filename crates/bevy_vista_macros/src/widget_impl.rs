@@ -1,8 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    DeriveInput, Ident, LitStr, Meta, Path, Token, parse::Parse, parse::ParseStream,
-    parse_macro_input,
+    DeriveInput, Ident, LitStr, Path, Token, parse::Parse, parse::ParseStream, parse_macro_input,
 };
 
 pub fn widget_derive_impl(input: TokenStream) -> TokenStream {
@@ -26,16 +25,13 @@ pub fn widget_derive_impl(input: TokenStream) -> TokenStream {
     };
     let builder_info = attr.parse_args::<WidgetBuilderAttrInfo>().unwrap();
     let builder_path = builder_info.builder;
-    let has_show_in_inspector = has_derive(&input, "ShowInInspector");
-    let has_component = has_derive(&input, "Component");
-
     let impl_widget_trait = impl_widget_trait(&input, category, name);
     let impl_get_widget_registration_trait = impl_get_widget_registration_trait(
         &input,
         category,
         name,
         &builder_path,
-        has_show_in_inspector && has_component,
+        true,
         widget_info.children.as_deref(),
         widget_info.slots.as_deref(),
     );
@@ -201,23 +197,6 @@ fn parse_slots_tokens(raw: &str) -> proc_macro2::TokenStream {
         .map(|slot| LitStr::new(slot, proc_macro2::Span::call_site()))
         .collect::<Vec<_>>();
     quote! { &[#(#lits),*] }
-}
-
-fn has_derive(input: &DeriveInput, derive_name: &str) -> bool {
-    input.attrs.iter().any(|attr| {
-        if !attr.path().is_ident("derive") {
-            return false;
-        }
-        let Ok(list) = attr
-            .parse_args_with(syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated)
-        else {
-            return false;
-        };
-        list.iter().any(|meta| match meta {
-            Meta::Path(path) => path.is_ident(derive_name),
-            _ => false,
-        })
-    })
 }
 
 fn auto_widget_registration(ty: &Ident) -> proc_macro2::TokenStream {

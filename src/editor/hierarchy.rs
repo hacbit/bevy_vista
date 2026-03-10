@@ -9,7 +9,7 @@ use crate::widget::{
 use super::*;
 
 #[derive(Resource)]
-pub(super) struct HierarchyState {
+pub(crate) struct HierarchyState {
     pub dirty: bool,
 }
 

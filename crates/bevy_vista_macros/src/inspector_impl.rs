@@ -30,6 +30,12 @@ pub fn show_in_inspector_derive_impl(input: TokenStream) -> TokenStream {
                 ]
             }
         }
+
+        bevy_vista::inspector::__macro_exports::inventory::submit! {
+            bevy_vista::inspector::__macro_exports::AutomaticInspectorMetadata(
+                <#ty as bevy_vista::inspector::__macro_exports::RegisterForInspectorMetadata>::__auto_register
+            )
+        }
     }
     .into()
 }
