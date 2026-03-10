@@ -888,6 +888,7 @@ fn text_field_sync_visuals(
     text_nodes: Query<&ComputedNode, With<TextFieldInputText>>,
     mut text_query: Query<(&mut Text, &mut TextColor), With<TextFieldInputText>>,
     mut overlays: ParamSet<(
+        Query<(&mut BackgroundColor, &mut BorderColor), With<TextField>>,
         Query<(&mut Node, &mut Visibility), With<TextFieldCursor>>,
         Query<
             (&mut Node, &mut Visibility, &mut BackgroundColor),
@@ -896,7 +897,8 @@ fn text_field_sync_visuals(
     )>,
 ) {
     for (field_entity, field, children) in fields.iter() {
-        let (on_surface, on_surface_muted, primary) = match resolve_theme_or_global(
+        let (surface, outline, on_surface, on_surface_muted, primary, disabled_bg) =
+            match resolve_theme_or_global(
             field_entity,
             &parents,
             &scopes,
@@ -904,16 +906,33 @@ fn text_field_sync_visuals(
             global_theme.as_deref(),
         ) {
             Some(theme) => (
+                theme.palette.surface,
+                theme.palette.outline,
                 theme.palette.on_surface,
                 theme.palette.on_surface_muted,
                 theme.palette.primary,
+                theme.palette.disabled_container,
             ),
             None => (
+                Color::srgb(0.12, 0.12, 0.12),
+                Color::srgb(0.3, 0.3, 0.3),
                 Color::srgb(0.9, 0.9, 0.9),
                 Color::srgb(0.55, 0.55, 0.55),
                 Color::srgb(0.2, 0.6, 0.95),
+                Color::srgb(0.09, 0.09, 0.09),
             ),
         };
+
+        if let Ok((mut background, mut border)) = overlays.p0().get_mut(field_entity) {
+            background.0 = if field.disabled { disabled_bg } else { surface };
+            *border = BorderColor::all(if field.disabled {
+                outline.with_alpha(0.55)
+            } else if focused.0 == Some(field_entity) {
+                primary.with_alpha(0.85)
+            } else {
+                outline
+            });
+        }
 
         let text_entity = find_descendant_with(children, &children_query, &text_entities);
         let cursor_entity = find_descendant_with(children, &children_query, &cursor_entities);
@@ -927,19 +946,29 @@ fn text_field_sync_visuals(
         };
 
         if let Ok((mut text, mut text_color)) = text_query.get_mut(text_entity) {
+            let value_color = if field.disabled {
+                on_surface_muted.with_alpha(0.75)
+            } else {
+                on_surface
+            };
+            let placeholder_color = if field.disabled {
+                on_surface_muted.with_alpha(0.55)
+            } else {
+                on_surface_muted
+            };
             if field.value.is_empty() {
                 if text.0 != field.placeholder {
                     text.0 = field.placeholder.clone();
                 }
-                if text_color.0 != on_surface_muted {
-                    *text_color = TextColor(on_surface_muted);
+                if text_color.0 != placeholder_color {
+                    *text_color = TextColor(placeholder_color);
                 }
             } else {
                 if text.0 != field.value {
                     text.0 = field.value.clone();
                 }
-                if text_color.0 != on_surface {
-                    *text_color = TextColor(on_surface);
+                if text_color.0 != value_color {
+                    *text_color = TextColor(value_color);
                 }
             }
         }
@@ -949,7 +978,7 @@ fn text_field_sync_visuals(
             .get(text_entity)
             .map(|n| n.inverse_scale_factor())
             .unwrap_or(1.0);
-        if let Ok((mut cursor_node, mut cursor_vis)) = overlays.p0().get_mut(cursor_entity) {
+        if let Ok((mut cursor_node, mut cursor_vis)) = overlays.p1().get_mut(cursor_entity) {
             let is_focused = focused.0 == Some(field_entity) && !field.disabled;
             *cursor_vis = if is_focused && blink.visible {
                 Visibility::Visible
@@ -981,7 +1010,7 @@ fn text_field_sync_visuals(
 
         if let (Some(selection_entity), Some(layout)) = (selection_entity, layout) {
             if let Ok((mut sel_node, mut sel_vis, mut sel_bg)) =
-                overlays.p1().get_mut(selection_entity)
+                overlays.p2().get_mut(selection_entity)
             {
                 let is_focused = focused.0 == Some(field_entity) && !field.disabled;
                 if is_focused {
