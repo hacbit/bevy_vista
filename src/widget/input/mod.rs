@@ -11,8 +11,8 @@ pub use color_field::{
 pub mod dropdown;
 pub use dropdown::{Dropdown, DropdownBuilder, DropdownChange, DropdownPlugin};
 
-pub mod numeric_fields;
-pub use numeric_fields::{
+pub mod number_field;
+pub use number_field::{
     NumberField, NumberFieldBuilder, NumberFieldChange, NumberFieldPlugin, NumberKind,
     NumericFieldsPlugin,
 };
