@@ -53,10 +53,6 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     if let Some(label) = property.label {
         options = quote! { #options.label(#label) };
     }
-    if let Some(editor) = property.editor {
-        let editor_tokens = editor_tokens(&editor.value());
-        options = quote! { #options.editor(#editor_tokens) };
-    }
     if property.hidden {
         options = quote! { #options.hidden(true) };
     }
@@ -85,51 +81,9 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     })
 }
 
-fn editor_tokens(editor: &str) -> proc_macro2::TokenStream {
-    match editor {
-        "f32" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Number(
-                bevy_vista::inspector::InspectorNumberAdapter::F32
-            )
-        },
-        "val_px" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Val(
-                bevy_vista::inspector::InspectorValAdapter::Val
-            )
-        },
-        "ui_rect_all" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Number(
-                bevy_vista::inspector::InspectorNumberAdapter::UiRectAll
-            )
-        },
-        "bool" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Bool(
-                bevy_vista::inspector::InspectorBoolAdapter::Bool
-            )
-        },
-        "visibility" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Bool(
-                bevy_vista::inspector::InspectorBoolAdapter::Visibility
-            )
-        },
-        "unit_enum" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Choice(
-                bevy_vista::inspector::InspectorChoiceAdapter::UnitEnum
-            )
-        },
-        "color_preset" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Choice(
-                bevy_vista::inspector::InspectorChoiceAdapter::ColorPreset
-            )
-        },
-        other => panic!("unknown inspector editor `{other}`"),
-    }
-}
-
 #[derive(Default)]
 struct PropertyArgs {
     label: Option<LitStr>,
-    editor: Option<LitStr>,
     min: Option<Expr>,
     header: Option<LitStr>,
     header_default_open: Option<bool>,
@@ -150,7 +104,6 @@ impl Parse for PropertyArgs {
                 input.parse::<Token![=]>()?;
                 match ident.to_string().as_str() {
                     "label" => args.label = Some(input.parse::<LitStr>()?),
-                    "editor" => args.editor = Some(input.parse::<LitStr>()?),
                     "header" => args.header = Some(input.parse::<LitStr>()?),
                     "default_open" => {
                         args.header_default_open = Some(input.parse::<LitBool>()?.value)

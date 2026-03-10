@@ -21,7 +21,6 @@ pub enum InspectorResolvedEditor {
 pub enum InspectorNumberAdapter {
     F32,
     Rot2Degrees,
-    UiRectAll,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -42,13 +41,11 @@ pub enum InspectorVec2Adapter {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorBoolAdapter {
     Bool,
-    Visibility,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum InspectorChoiceAdapter {
     UnitEnum,
-    ColorPreset,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -84,7 +81,6 @@ impl InspectorResolvedEditor {
 #[derive(Clone, Debug, Default)]
 pub struct InspectorFieldOptions {
     pub label: Option<String>,
-    pub editor: Option<InspectorResolvedEditor>,
     pub hidden: bool,
     pub numeric_min: Option<f32>,
     pub header: Option<InspectorHeaderOptions>,
@@ -94,11 +90,6 @@ pub struct InspectorFieldOptions {
 impl InspectorFieldOptions {
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
-        self
-    }
-
-    pub fn editor(mut self, editor: InspectorResolvedEditor) -> Self {
-        self.editor = Some(editor);
         self
     }
 
@@ -283,9 +274,8 @@ impl InspectorEditorRegistry {
             return Vec::new();
         }
 
-        let editor = metadata
-            .and_then(|value| value.editor)
-            .or_else(|| self.editor_for_type(field))
+        let editor = self
+            .editor_for_type(field)
             .or_else(|| self.editor_for_unit_enum(field));
 
         if let Some(editor) = editor {
@@ -363,30 +353,6 @@ pub trait ShowInInspector {
     }
 }
 
-pub fn editor_from_key(key: &str) -> Option<InspectorResolvedEditor> {
-    match key {
-        "f32" => Some(InspectorResolvedEditor::Number(InspectorNumberAdapter::F32)),
-        "string" | "text" => Some(InspectorResolvedEditor::String(
-            InspectorStringAdapter::Text,
-        )),
-        "val_px" | "val" => Some(InspectorResolvedEditor::Val(InspectorValAdapter::Val)),
-        "ui_rect_all" => Some(InspectorResolvedEditor::Number(
-            InspectorNumberAdapter::UiRectAll,
-        )),
-        "bool" => Some(InspectorResolvedEditor::Bool(InspectorBoolAdapter::Bool)),
-        "visibility" => Some(InspectorResolvedEditor::Bool(
-            InspectorBoolAdapter::Visibility,
-        )),
-        "unit_enum" => Some(InspectorResolvedEditor::Choice(
-            InspectorChoiceAdapter::UnitEnum,
-        )),
-        "color_preset" | "color" => {
-            Some(InspectorResolvedEditor::Color(InspectorColorAdapter::Color))
-        }
-        _ => None,
-    }
-}
-
 pub fn read_string_field(
     _adapter: InspectorStringAdapter,
     field: &dyn PartialReflect,
@@ -432,7 +398,6 @@ pub fn read_number_field(
     match adapter {
         InspectorNumberAdapter::F32 => field.try_downcast_ref::<f32>().copied(),
         InspectorNumberAdapter::Rot2Degrees => Some(field.try_downcast_ref::<Rot2>()?.as_degrees()),
-        InspectorNumberAdapter::UiRectAll => rect_uniform_px(*field.try_downcast_ref::<UiRect>()?),
     }
 }
 
@@ -456,13 +421,6 @@ pub fn write_number_field(
                 return false;
             };
             *target = Rot2::degrees(value);
-            true
-        }
-        InspectorNumberAdapter::UiRectAll => {
-            let Some(target) = field.try_downcast_mut::<UiRect>() else {
-                return false;
-            };
-            *target = UiRect::all(Val::Px(value));
             true
         }
     }
@@ -653,10 +611,6 @@ pub fn collect_non_default_serialized_fields(
 pub fn read_bool_field(adapter: InspectorBoolAdapter, field: &dyn PartialReflect) -> Option<bool> {
     match adapter {
         InspectorBoolAdapter::Bool => field.try_downcast_ref::<bool>().copied(),
-        InspectorBoolAdapter::Visibility => {
-            let visibility = field.try_downcast_ref::<Visibility>()?;
-            Some(*visibility != Visibility::Hidden)
-        }
     }
 }
 
@@ -673,24 +627,13 @@ pub fn write_bool_field(
             *target = checked;
             true
         }
-        InspectorBoolAdapter::Visibility => {
-            let Some(target) = field.try_downcast_mut::<Visibility>() else {
-                return false;
-            };
-            *target = if checked {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
-            true
-        }
     }
 }
 
 pub fn read_choice_field(
     adapter: InspectorChoiceAdapter,
     field: &dyn PartialReflect,
-    theme: Option<&Theme>,
+    _theme: Option<&Theme>,
 ) -> Option<(Vec<String>, usize)> {
     match adapter {
         InspectorChoiceAdapter::UnitEnum => {
@@ -712,20 +655,6 @@ pub fn read_choice_field(
                 value.variant_index(),
             ))
         }
-        InspectorChoiceAdapter::ColorPreset => {
-            let color = field.try_downcast_ref::<Color>()?;
-            let presets = background_presets(theme);
-            Some((
-                presets
-                    .iter()
-                    .map(|(label, _)| (*label).to_owned())
-                    .collect(),
-                presets
-                    .iter()
-                    .position(|(_, preset)| preset == color)
-                    .unwrap_or(0),
-            ))
-        }
     }
 }
 
@@ -733,7 +662,7 @@ pub fn write_choice_field(
     adapter: InspectorChoiceAdapter,
     field: &mut dyn PartialReflect,
     selected: usize,
-    theme: Option<&Theme>,
+    _theme: Option<&Theme>,
 ) -> bool {
     match adapter {
         InspectorChoiceAdapter::UnitEnum => {
@@ -752,15 +681,6 @@ pub fn write_choice_field(
             let mut dynamic = DynamicEnum::new_with_index(selected, variant.name(), ());
             dynamic.set_represented_type(Some(type_info));
             field.apply(dynamic.as_partial_reflect());
-            true
-        }
-        InspectorChoiceAdapter::ColorPreset => {
-            let Some(target) = field.try_downcast_mut::<Color>() else {
-                return false;
-            };
-            let presets = background_presets(theme);
-            let index = selected.min(presets.len().saturating_sub(1));
-            *target = presets[index].1;
             true
         }
     }
@@ -899,25 +819,10 @@ pub fn apply_serialized_editor_value(
 
 pub fn default_choice_options(
     adapter: InspectorChoiceAdapter,
-    theme: Option<&Theme>,
+    _theme: Option<&Theme>,
 ) -> Vec<String> {
     match adapter {
         InspectorChoiceAdapter::UnitEnum => Vec::new(),
-        InspectorChoiceAdapter::ColorPreset => background_presets(theme)
-            .iter()
-            .map(|(label, _)| (*label).to_owned())
-            .collect(),
-    }
-}
-
-fn rect_uniform_px(rect: UiRect) -> Option<f32> {
-    match (rect.left, rect.right, rect.top, rect.bottom) {
-        (Val::Px(left), Val::Px(right), Val::Px(top), Val::Px(bottom))
-            if left == right && left == top && left == bottom =>
-        {
-            Some(left)
-        }
-        _ => Some(0.0),
     }
 }
 
@@ -974,23 +879,4 @@ fn humanize_variant_name(name: &str) -> String {
         result.push(ch);
     }
     result
-}
-
-fn background_presets(theme: Option<&Theme>) -> [(&'static str, Color); 5] {
-    match theme {
-        Some(t) => [
-            ("None", Color::NONE),
-            ("Surface", t.palette.surface),
-            ("Variant", t.palette.surface_variant),
-            ("PrimaryBox", t.palette.primary_container),
-            ("Primary", t.palette.primary),
-        ],
-        None => [
-            ("None", Color::NONE),
-            ("Dark", Color::srgb(0.12, 0.12, 0.12)),
-            ("Panel", Color::srgb(0.2, 0.2, 0.2)),
-            ("AccentBox", Color::srgb(0.22, 0.35, 0.52)),
-            ("Accent", Color::srgb(0.2, 0.6, 0.95)),
-        ],
-    }
 }
