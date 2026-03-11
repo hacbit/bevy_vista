@@ -3,15 +3,13 @@
 use bevy::prelude::*;
 pub use bevy_vista_macros;
 
-pub mod asset;
+pub mod core;
 pub mod editor;
-pub mod editor_resources;
-pub mod grid;
-pub mod icons;
-pub mod inspector;
-pub mod theme;
-pub mod widget;
-pub mod widget_doc;
+pub mod runtime;
+
+pub use core::{asset, icons, inspector, theme, widget};
+pub use editor::{grid, resources as editor_resources};
+pub use runtime::widget_doc;
 
 pub mod prelude {
     pub use super::asset::{

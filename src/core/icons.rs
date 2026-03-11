@@ -43,7 +43,7 @@ impl Plugin for EditorIconsPlugin {
 
 generate_icons! {
     #[derive(Resource, Default)]
-    #[icons_data("./src/icons_data.txt")]
+    #[icons_data("./src/core/icons_data.txt")]
     struct IconsManager
 
     #[derive(Component, Hash, PartialEq, Eq, Clone, Copy)]

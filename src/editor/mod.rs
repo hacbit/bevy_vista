@@ -1,3 +1,6 @@
+pub mod grid;
+pub mod resources;
+
 use bevy::app::App;
 use bevy::ecs::{name::Name, system::Commands};
 use bevy::ui::{Node, Val};
