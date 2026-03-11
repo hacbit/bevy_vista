@@ -77,3 +77,7 @@ path = "crates/bevy_vista_macros"
 # short name for quick testing
 name = "full"
 path = "examples/quick_full_editor.rs"
+
+[lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"

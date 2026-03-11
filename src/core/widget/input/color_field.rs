@@ -87,17 +87,12 @@ impl UiMaterial for ColorFieldUiMaterial {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 pub enum ColorFieldMode {
+    #[default]
     Rgba,
     RgbaU8,
     Hsla,
-}
-
-impl Default for ColorFieldMode {
-    fn default() -> Self {
-        Self::Rgba
-    }
 }
 
 #[derive(Component, Reflect, Clone, Widget, ShowInInspector)]

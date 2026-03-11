@@ -204,17 +204,14 @@ impl WidgetRegistry {
 
 pub type WidgetId = (&'static str, &'static str);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WidgetChildRule {
+    #[default]
     Any,
     Exact(usize),
-    Range { max: Option<usize> },
-}
-
-impl Default for WidgetChildRule {
-    fn default() -> Self {
-        Self::Any
-    }
+    Range {
+        max: Option<usize>,
+    },
 }
 
 pub struct WidgetSpawnResult {
@@ -694,10 +691,9 @@ mod tests {
         let direct_registration =
             <common::button::ButtonWidget as GetWidgetRegistration>::get_widget_registration();
         assert!(
-            direct_registration
+            !direct_registration
                 .inspector_entries(&inspector_registry)
-                .len()
-                > 0,
+                .is_empty(),
             "button registration returned by derive should carry inspector support"
         );
         let registration = widget_registry

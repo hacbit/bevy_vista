@@ -43,18 +43,10 @@ pub struct VistaEditorViewOptions {
     pub is_preview_mode: bool,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub(crate) struct InspectorControlRegistry {
     registrations:
         bevy::platform::collections::HashMap<InspectorDriverId, Arc<dyn InspectorDriver>>,
-}
-
-impl Default for InspectorControlRegistry {
-    fn default() -> Self {
-        Self {
-            registrations: bevy::platform::collections::HashMap::default(),
-        }
-    }
 }
 
 impl InspectorControlRegistry {

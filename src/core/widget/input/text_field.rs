@@ -558,10 +558,10 @@ fn text_field_ime_input(
     for ime in ime_reader.read() {
         if let Ime::Commit { value, .. } = ime {
             for ch in value.chars().filter(is_printable_char) {
-                if let Some(max) = field.max_length {
-                    if field.value.chars().count() >= max {
-                        break;
-                    }
+                if let Some(max) = field.max_length
+                    && field.value.chars().count() >= max
+                {
+                    break;
                 }
 
                 if let Some((start, end)) = selection_range(field.selection, text_len) {
@@ -735,10 +735,10 @@ fn text_field_input(
                             text_len = field.value.chars().count();
                         }
                         for ch in pasted.chars().filter(is_printable_char) {
-                            if let Some(max) = field.max_length {
-                                if field.value.chars().count() >= max {
-                                    break;
-                                }
+                            if let Some(max) = field.max_length
+                                && field.value.chars().count() >= max
+                            {
+                                break;
                             }
                             let char_index = field.cursor_pos;
                             insert_char_at(&mut field.value, char_index, ch);
@@ -808,10 +808,10 @@ fn text_field_input(
             if ch.is_control() {
                 continue;
             }
-            if let Some(max) = field.max_length {
-                if field.value.chars().count() >= max {
-                    break;
-                }
+            if let Some(max) = field.max_length
+                && field.value.chars().count() >= max
+            {
+                break;
             }
 
             if let Some((start, end)) = selection_range(field.selection, text_len) {
@@ -1008,29 +1008,28 @@ fn text_field_sync_visuals(
             cursor_node.height = px((cursor_height * inv_scale).max(12.0));
         }
 
-        if let (Some(selection_entity), Some(layout)) = (selection_entity, layout) {
-            if let Ok((mut sel_node, mut sel_vis, mut sel_bg)) =
+        if let (Some(selection_entity), Some(layout)) = (selection_entity, layout)
+            && let Ok((mut sel_node, mut sel_vis, mut sel_bg)) =
                 overlays.p2().get_mut(selection_entity)
-            {
-                let is_focused = focused.0 == Some(field_entity) && !field.disabled;
-                if is_focused {
-                    if let Some((start, end)) =
-                        selection_range(field.selection, field.value.chars().count())
-                    {
-                        let x0 = cursor_x_from_pos(&field.value, start, layout);
-                        let x1 = cursor_x_from_pos(&field.value, end, layout);
-                        let left = x0.min(x1) * inv_scale;
-                        let width = (x1 - x0).abs() * inv_scale;
-                        sel_node.left = px(left);
-                        sel_node.width = px(width.max(1.0));
-                        sel_bg.0 = primary.with_alpha(0.45);
-                        *sel_vis = Visibility::Visible;
-                    } else {
-                        *sel_vis = Visibility::Hidden;
-                    }
+        {
+            let is_focused = focused.0 == Some(field_entity) && !field.disabled;
+            if is_focused {
+                if let Some((start, end)) =
+                    selection_range(field.selection, field.value.chars().count())
+                {
+                    let x0 = cursor_x_from_pos(&field.value, start, layout);
+                    let x1 = cursor_x_from_pos(&field.value, end, layout);
+                    let left = x0.min(x1) * inv_scale;
+                    let width = (x1 - x0).abs() * inv_scale;
+                    sel_node.left = px(left);
+                    sel_node.width = px(width.max(1.0));
+                    sel_bg.0 = primary.with_alpha(0.45);
+                    *sel_vis = Visibility::Visible;
                 } else {
                     *sel_vis = Visibility::Hidden;
                 }
+            } else {
+                *sel_vis = Visibility::Hidden;
             }
         }
     }
@@ -1128,10 +1127,10 @@ fn cursor_x_from_pos(text: &str, pos: usize, layout: &TextLayoutInfo) -> f32 {
     let mut prev: Option<GlyphSpan> = None;
     for span in &spans {
         if pos < span.start {
-            if let Some(prev) = prev {
-                if pos == prev.end {
-                    return prev.right;
-                }
+            if let Some(prev) = prev
+                && pos == prev.end
+            {
+                return prev.right;
             }
             return span.left;
         }
@@ -1211,7 +1210,7 @@ fn build_glyph_spans(text: &str, layout: &TextLayoutInfo) -> Vec<GlyphSpan> {
         spans.push(GlyphSpan {
             start,
             end,
-            line: glyph.line_index as usize,
+            line: glyph.line_index,
             left,
             right,
             top,
@@ -1234,10 +1233,10 @@ fn cursor_x_from_pos_on_line(pos: usize, line: usize, spans: &[GlyphSpan]) -> f3
     let mut prev: Option<GlyphSpan> = None;
     for span in spans.iter().filter(|s| s.line == line) {
         if pos < span.start {
-            if let Some(prev) = prev {
-                if pos == prev.end {
-                    return prev.right;
-                }
+            if let Some(prev) = prev
+                && pos == prev.end
+            {
+                return prev.right;
             }
             return span.left;
         }
@@ -1260,10 +1259,10 @@ fn line_for_pos(text: &str, pos: usize, spans: &[GlyphSpan]) -> usize {
     let mut prev: Option<GlyphSpan> = None;
     for span in spans {
         if pos < span.start {
-            if let Some(prev) = prev {
-                if pos == prev.end {
-                    return prev.line;
-                }
+            if let Some(prev) = prev
+                && pos == prev.end
+            {
+                return prev.line;
             }
             return span.line;
         }

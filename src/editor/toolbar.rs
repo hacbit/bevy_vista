@@ -400,7 +400,7 @@ fn save_document(
     {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-    let asset = VistaUiAsset::from(&*document);
+    let asset = VistaUiAsset::from(document);
     let ron = asset
         .to_ron_string_pretty_compact(widget_registry, inspector_registry)
         .map_err(asset_error_to_string)?;

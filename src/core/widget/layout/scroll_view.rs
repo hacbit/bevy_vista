@@ -218,7 +218,7 @@ impl DefaultWidgetBuilder for ScrollViewBuilder {
     }
 }
 
-///
+/// Scrollbar configuration component used by the built-in scroll view widgets.
 #[derive(Component, Debug, Reflect)]
 pub struct Scrollbar {
     /// Entity being scrolled.
@@ -603,8 +603,7 @@ fn update_scrollbar_thumb_color(
         } else {
             // Default color for the slider
             SCROLLBAR_THUMB_COLOR
-        }
-        .into();
+        };
 
         if thumb_bg.0 != color {
             // Update the color of the thumb

@@ -9,7 +9,7 @@ impl Plugin for CheckboxPlugin {
     }
 }
 
-#[derive(Component, Reflect, Clone, Widget, ShowInInspector)]
+#[derive(Component, Reflect, Clone, Default, Widget, ShowInInspector)]
 #[widget("input/checkbox", children = "exact(0)")]
 #[builder(CheckboxBuilder)]
 pub struct Checkbox {
@@ -17,15 +17,6 @@ pub struct Checkbox {
     pub checked: bool,
     #[property(label = "Disabled")]
     pub disabled: bool,
-}
-
-impl Default for Checkbox {
-    fn default() -> Self {
-        Self {
-            checked: false,
-            disabled: false,
-        }
-    }
 }
 
 #[derive(Component)]
@@ -99,7 +90,7 @@ impl CheckboxBuilder {
                 Icons::Checkmark,
             ))
             .id();
-        let entity = commands
+        commands
             .spawn((
                 Node {
                     width: px(self.size),
@@ -119,8 +110,7 @@ impl CheckboxBuilder {
             ))
             .add_child(mark)
             .observe(on_checkbox_click)
-            .id();
-        entity
+            .id()
     }
 }
 

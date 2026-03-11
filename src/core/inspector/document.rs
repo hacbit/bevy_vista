@@ -61,6 +61,7 @@ impl WidgetBlueprintDocument {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum BlueprintCommand {
     AddRoot {
         widget_path: String,

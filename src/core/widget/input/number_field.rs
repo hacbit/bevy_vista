@@ -143,7 +143,7 @@ impl Number {
             Self::U8(value) => Some(value as i128),
             Self::U16(value) => Some(value as i128),
             Self::U32(value) => Some(value as i128),
-            Self::U64(value) => i128::try_from(value).ok(),
+            Self::U64(value) => Some(i128::from(value)),
             Self::Usize(value) => i128::try_from(value).ok(),
             Self::F32(value) => float_to_i128(value as f64),
             Self::F64(value) => float_to_i128(value),

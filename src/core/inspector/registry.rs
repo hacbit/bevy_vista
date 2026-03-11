@@ -185,10 +185,10 @@ impl InspectorEditorRegistry {
 
     fn editor_for_type(&self, field: &dyn PartialReflect) -> Option<InspectorFieldEditor> {
         let type_id = field.get_represented_type_info()?.type_id();
-        if let Some(resolver) = self.type_resolvers.get(&type_id) {
-            if let Some(editor) = resolver(field) {
-                return Some(editor);
-            }
+        if let Some(resolver) = self.type_resolvers.get(&type_id)
+            && let Some(editor) = resolver(field)
+        {
+            return Some(editor);
         }
         self.type_editors.get(&type_id).copied()
     }
