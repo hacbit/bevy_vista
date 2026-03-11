@@ -457,11 +457,7 @@ pub fn serialize_val_field(field: &dyn PartialReflect) -> Option<String> {
     })
 }
 
-pub fn apply_serialized_val_field(
-    field: &mut dyn PartialReflect,
-    raw: &str,
-    numeric_min: Option<f32>,
-) -> bool {
+pub fn apply_serialized_val_field(field: &mut dyn PartialReflect, raw: &str) -> bool {
     let Some(target) = field.try_downcast_mut::<Val>() else {
         return false;
     };
@@ -484,9 +480,6 @@ pub fn apply_serialized_val_field(
         "VMax" => Val::VMax(value),
         _ => return false,
     };
-    if let Some(min) = numeric_min {
-        let _ = write_val_number_field(field, value, Some(min));
-    }
     true
 }
 
@@ -539,12 +532,11 @@ pub fn apply_serialized_editor_value(
     editor: InspectorFieldEditor,
     field: &mut dyn PartialReflect,
     raw: &str,
-    numeric_min: Option<f32>,
     theme: Option<&Theme>,
 ) -> bool {
     match driver_id(editor) {
-        INSPECTOR_DRIVER_NUMBER => parse_number_for_field(field, raw, numeric_min)
-            .is_some_and(|value| write_number_field(field, value, numeric_min)),
+        INSPECTOR_DRIVER_NUMBER => parse_number_for_field(field, raw, None)
+            .is_some_and(|value| write_number_field(field, value, None)),
         INSPECTOR_DRIVER_STRING => write_string_field(field, raw.to_owned()),
         INSPECTOR_DRIVER_BOOL => raw
             .parse::<bool>()
@@ -578,7 +570,7 @@ pub fn apply_serialized_editor_value(
             };
             write_color_field(field, Color::srgba(r, g, b, a))
         }
-        INSPECTOR_DRIVER_VAL => apply_serialized_val_field(field, raw, numeric_min),
+        INSPECTOR_DRIVER_VAL => apply_serialized_val_field(field, raw),
         INSPECTOR_DRIVER_VEC2 => apply_serialized_vec2_field(field, raw),
         _ => false,
     }

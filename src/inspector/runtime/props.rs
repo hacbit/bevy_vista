@@ -6,7 +6,6 @@ use crate::inspector::{
     InspectorFieldEditor, WidgetBlueprintDocument, apply_blueprint_command, read_reflect_path,
     read_reflect_path_mut,
 };
-use crate::theme::Theme;
 use crate::widget::{WidgetRegistry, WidgetStyle};
 
 use super::{InspectorBindingTarget, InspectorControlRegistry, InspectorPanelState};
@@ -29,7 +28,6 @@ pub(crate) fn selected_node_widget_reflect(
     widget_registry: &WidgetRegistry,
     inspector_registry: &InspectorEditorRegistry,
     control_registry: &InspectorControlRegistry,
-    theme: Option<&Theme>,
 ) -> Option<Box<dyn PartialReflect>> {
     let node_id = panel_state.selected_node?;
     let node = document.nodes.get(&node_id)?;
@@ -49,13 +47,7 @@ pub(crate) fn selected_node_widget_reflect(
         let Some(target) = read_reflect_path_mut(reflect, &field.field_path) else {
             continue;
         };
-        let _ = control_registry.apply_serialized_value(
-            field.editor,
-            target,
-            raw,
-            field.numeric_min,
-            theme,
-        );
+        let _ = control_registry.apply_serialized_value(field.editor, target, raw);
     }
     Some(value)
 }
@@ -116,12 +108,11 @@ pub(crate) fn store_widget_prop_change(
     document: &mut WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
     control_registry: &InspectorControlRegistry,
-    theme: Option<&Theme>,
 ) {
     let Some(node) = document.nodes.get(&node_id) else {
         return;
     };
-    let Some(serialized) = control_registry.serialize_value(editor, field, theme) else {
+    let Some(serialized) = control_registry.serialize_value(editor, field) else {
         return;
     };
     let Some(registration) = widget_registry.get_widget_by_path(&node.widget_path) else {
@@ -187,7 +178,9 @@ pub(crate) fn selected_binding_source<'a>(
     field_path: &str,
 ) -> Option<&'a dyn PartialReflect> {
     match target {
-        InspectorBindingTarget::Style => read_reflect_path(style as &dyn PartialReflect, field_path),
+        InspectorBindingTarget::Style => {
+            read_reflect_path(style as &dyn PartialReflect, field_path)
+        }
         InspectorBindingTarget::WidgetProp => {
             widget_reflect.and_then(|value| read_reflect_path(value, field_path))
         }
@@ -203,7 +196,6 @@ pub(crate) fn apply_selected_field_change<F>(
     target: &InspectorBindingTarget,
     field_path: &str,
     editor: InspectorFieldEditor,
-    theme: Option<&Theme>,
     apply: F,
 ) -> bool
 where
@@ -221,7 +213,6 @@ where
                 widget_registry,
                 inspector_registry,
                 control_registry,
-                theme,
             ) else {
                 return false;
             };
@@ -239,12 +230,12 @@ where
                 document,
                 widget_registry,
                 control_registry,
-                theme,
             );
             true
         }
         InspectorBindingTarget::Style => {
-            let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
+            let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone())
+            else {
                 return false;
             };
             let style_reflect: &mut dyn PartialReflect = &mut style;

@@ -9,8 +9,8 @@ use ron::ser::PrettyConfig;
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Serialize};
 
-use crate::inspector::{BlueprintNodeId, WidgetBlueprintDocument, WidgetBlueprintNode};
 use crate::inspector::InspectorEditorRegistry;
+use crate::inspector::{BlueprintNodeId, WidgetBlueprintDocument, WidgetBlueprintNode};
 use crate::theme::Theme;
 use crate::widget::{WidgetRegistry, WidgetStyle, spawn_blueprint_widget_content};
 
@@ -620,13 +620,7 @@ fn apply_serialized_field_overrides(
         else {
             continue;
         };
-        let _ = crate::inspector::apply_serialized_editor_value(
-            field.editor,
-            target,
-            raw,
-            field.numeric_min,
-            theme,
-        );
+        let _ = crate::inspector::apply_serialized_editor_value(field.editor, target, raw, theme);
     }
 }
 

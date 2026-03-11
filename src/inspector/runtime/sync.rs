@@ -268,7 +268,6 @@ pub(crate) fn sync_inspector_field_markers(
         &widget_registry,
         &inspector_registry,
         &control_registry,
-        None,
     );
     let widget_default =
         selected_node_widget_default_reflect(&panel_state, &document, &widget_registry);

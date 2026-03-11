@@ -8,10 +8,10 @@ use bevy::prelude::*;
 use bevy::utils::TypeIdMap;
 
 use crate as bevy_vista;
+use crate::inspector::runtime::InspectorControlRegistry;
 use crate::inspector::{
     InspectorEditorRegistry, InspectorEntryDescriptor, apply_serialized_editor_value,
 };
-use crate::inspector::runtime::InspectorControlRegistry;
 use crate::prelude::*;
 
 pub mod common;
@@ -31,10 +31,10 @@ pub use input::{
 pub mod layout;
 pub use layout::{
     Divider, DividerAxis, DividerBuilder, Foldout, FoldoutBuilder, FoldoutPlugin, ListView,
-    ListViewBuilder, ListViewItem, ListViewPlugin, ScrollView, ScrollViewBuilder,
-    ScrollViewPlugin, ScrollbarVisibility, SplitView, SplitViewAxis, SplitViewBuilder,
-    SplitViewPlugin, TreeNodeBuilder, TreeNodeHeader, TreeNodeItemId, TreeNodeState, TreeView,
-    TreeViewBuilder, TreeViewPlugin,
+    ListViewBuilder, ListViewItem, ListViewPlugin, ScrollView, ScrollViewBuilder, ScrollViewPlugin,
+    ScrollbarVisibility, SplitView, SplitViewAxis, SplitViewBuilder, SplitViewPlugin,
+    TreeNodeBuilder, TreeNodeHeader, TreeNodeItemId, TreeNodeState, TreeView, TreeViewBuilder,
+    TreeViewPlugin,
 };
 
 pub struct DefaultUiWidgetsPlugins;
@@ -658,17 +658,9 @@ fn apply_widget_props<T>(
         else {
             continue;
         };
-        let _ = control_registry
-            .is_some_and(|control_registry| {
-                control_registry.apply_serialized_value(
-                    field.editor,
-                    target,
-                    raw,
-                    field.numeric_min,
-                    theme,
-                )
-            })
-            || apply_serialized_editor_value(field.editor, target, raw, field.numeric_min, theme);
+        let _ = control_registry.is_some_and(|control_registry| {
+            control_registry.apply_serialized_value(field.editor, target, raw)
+        }) || apply_serialized_editor_value(field.editor, target, raw, theme);
     }
     commands.entity(entity).insert(value);
 }
