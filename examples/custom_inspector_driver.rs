@@ -26,12 +26,6 @@ impl Plugin for BoolDropdownInspectorPlugin {
     }
 }
 
-#[derive(Component)]
-struct BoolDropdownControl {
-    field_path: String,
-    target: InspectorBindingTarget,
-}
-
 struct BoolDropdownDriver;
 
 impl InspectorDriver for BoolDropdownDriver {
@@ -42,53 +36,21 @@ impl InspectorDriver for BoolDropdownDriver {
     fn build(
         &self,
         commands: &mut Commands,
-        field: &InspectorFieldDescriptor,
+        _field: &InspectorFieldDescriptor,
         theme: Option<&Theme>,
     ) -> Entity {
-        let control = DropdownBuilder::new()
+        DropdownBuilder::new()
             .width(px(100.0))
             .options(bool_options())
             .disabled(true)
-            .build(commands, theme);
-
-        commands.entity(control).insert(BoolDropdownControl {
-            field_path: field.field_path.clone(),
-            target: InspectorBindingTarget::Style,
-        });
-        control
+            .build(commands, theme)
     }
 
-    fn retarget_control(
-        &self,
-        commands: &mut Commands,
-        control: Entity,
-        target: InspectorBindingTarget,
-    ) {
-        commands
-            .entity(control)
-            .entry::<BoolDropdownControl>()
-            .and_modify(move |mut binding| {
-                binding.target = target.clone();
-            });
-    }
-
-    fn serialize(
-        &self,
-        _editor: InspectorFieldEditor,
-        field: &dyn PartialReflect,
-        _theme: Option<&Theme>,
-    ) -> Option<String> {
+    fn serialize(&self, field: &dyn PartialReflect) -> Option<String> {
         Some(read_bool_field(field)?.to_string())
     }
 
-    fn apply_serialized(
-        &self,
-        _editor: InspectorFieldEditor,
-        field: &mut dyn PartialReflect,
-        raw: &str,
-        _numeric_min: Option<f32>,
-        _theme: Option<&Theme>,
-    ) -> bool {
+    fn apply_serialized(&self, field: &mut dyn PartialReflect, raw: &str) -> bool {
         raw.parse::<bool>()
             .ok()
             .is_some_and(|value| write_bool_field(field, value))
@@ -103,7 +65,6 @@ impl InspectorDriver for BoolDropdownDriver {
 fn apply_bool_dropdown_changes(
     mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<DropdownChange>,
-    controls: Query<&BoolDropdownControl>,
 ) {
     if !ctx.can_edit() {
         changes.clear();
@@ -111,45 +72,30 @@ fn apply_bool_dropdown_changes(
     }
 
     for change in changes.read() {
-        let Ok(control) = controls.get(change.entity) else {
+        if !ctx.is_control(change.entity, INSPECTOR_DRIVER_BOOL_DROPDOWN) {
             continue;
-        };
+        }
         let value = change.selected == 1;
-        let _ = ctx.apply_to_field(
-            &control.target,
-            &control.field_path,
-            InspectorFieldEditor::new(INSPECTOR_DRIVER_BOOL_DROPDOWN),
-            None,
-            |field| write_bool_field(field, value),
-        );
+        let _ = ctx.write_for(change.entity, |field| write_bool_field(field, value));
     }
 }
 
 fn sync_bool_dropdown_controls(
     ctx: InspectorDriverSyncContext,
-    mut controls: Query<(&BoolDropdownControl, &mut Dropdown)>,
+    mut controls: Query<(Entity, &mut Dropdown)>,
 ) {
     if !ctx.changed() {
         return;
     }
 
-    let Some(selection) = ctx.selection() else {
-        for (_, mut dropdown) in controls.iter_mut() {
-            dropdown.options = bool_options();
+    for (entity, mut dropdown) in controls.iter_mut() {
+        if !ctx.is_control(entity, INSPECTOR_DRIVER_BOOL_DROPDOWN) {
+            continue;
+        }
+        dropdown.options = bool_options();
+        let Some(value) = ctx.read_for(entity, read_bool_field) else {
             dropdown.selected = 0;
             dropdown.expanded = false;
-            dropdown.disabled = true;
-        }
-        return;
-    };
-
-    for (control, mut dropdown) in controls.iter_mut() {
-        dropdown.options = bool_options();
-        let Some(source) = selection.source(&control.target, &control.field_path) else {
-            dropdown.disabled = true;
-            continue;
-        };
-        let Some(value) = read_bool_field(source) else {
             dropdown.disabled = true;
             continue;
         };

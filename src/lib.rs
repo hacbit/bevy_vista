@@ -23,17 +23,16 @@ pub mod prelude {
         EditingMode, VistaEditorActive, VistaEditorCanvasInfo, VistaEditorExpanded,
         VistaEditorGridInfo, VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
     };
+    pub use super::icons::{EditorIconsPlugin, Icons};
+    pub use super::inspector::runtime::{
+        InspectorContext, InspectorDriver, InspectorDriverAppExt, InspectorDriverApplyContext,
+        InspectorDriverRuntimeBuilder, InspectorDriverSyncContext,
+    };
     pub use super::inspector::{
         BlueprintCommand, BlueprintNodeId, InspectorDriverId, InspectorEditorRegistry,
         InspectorFieldDescriptor, InspectorFieldEditor, WidgetBlueprintDocument,
         WidgetBlueprintNode, apply_blueprint_command,
     };
-    pub use super::inspector::runtime::{
-        InspectorBindingTarget, InspectorContext, InspectorDriver, InspectorDriverAppExt,
-        InspectorDriverApplyContext, InspectorDriverRuntimeBuilder, InspectorDriverSelection,
-        InspectorDriverSyncContext,
-    };
-    pub use super::icons::{EditorIconsPlugin, Icons};
     pub use super::theme::{
         EditorTheme, Theme, ThemeBoundary, ThemeMode, ThemeScope, ViewportThemeState,
     };
