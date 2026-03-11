@@ -5,7 +5,7 @@ use bevy::{
     shader::ShaderRef,
 };
 
-use crate::theme::resolve_theme_or_global;
+use crate::core::theme::resolve_theme_or_global;
 
 use super::*;
 
@@ -347,7 +347,7 @@ impl ColorFieldBuilder {
 impl DefaultWidgetBuilder for ColorFieldBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         ColorFieldBuilder::new().build(commands, theme).into()
     }

@@ -154,7 +154,7 @@ impl ListViewBuilder {
 impl DefaultWidgetBuilder for ListViewBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        _theme: Option<&crate::theme::Theme>,
+        _theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         let result = ListViewBuilder::new()
             .width(px(220.0))

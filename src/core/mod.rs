@@ -5,6 +5,7 @@ pub mod theme;
 pub mod widget;
 
 pub mod prelude {
+    pub use super::VistaUiCorePlugin;
     pub use super::asset::{
         VISTA_UI_ASSET_EXTENSION, VISTA_UI_ASSET_VERSION, VistaAssetPlugin, VistaNodeId,
         VistaUiAsset, VistaUiAssetError, VistaUiNodeAsset, VistaUiSpawnResult,
@@ -26,5 +27,30 @@ pub mod prelude {
         write_val_unit_field, write_vec2_axis_field,
     };
     pub use super::theme::*;
+    pub use super::theme::{
+        EditorTheme, Theme, ThemeBoundary, ThemeMode, ThemeScope, ViewportThemeState,
+    };
     pub use super::widget::*;
+    pub use crate::bevy_vista_macros::{ShowInInspector, Widget};
+}
+
+use crate::ensure_plugin_added;
+use bevy::prelude::*;
+
+pub struct VistaUiCorePlugin;
+
+impl Plugin for VistaUiCorePlugin {
+    fn build(&self, app: &mut App) {
+        ensure_plugin_added(app, asset::VistaAssetPlugin);
+        ensure_plugin_added(app, icons::EditorIconsPlugin);
+        ensure_plugin_added(app, widget::VistaWidgetsPlugin);
+        app.init_resource::<inspector::InspectorEditorRegistry>();
+        inspector::runtime::init_inspector_runtime(app);
+        if !app.world().contains_resource::<theme::Theme>() {
+            let default_theme =
+                theme::Theme::quick_from_hex("Default Theme", "#C83A6C", theme::ThemeMode::Dark)
+                    .unwrap();
+            app.insert_resource(default_theme);
+        }
+    }
 }

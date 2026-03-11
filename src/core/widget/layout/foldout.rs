@@ -197,7 +197,7 @@ impl FoldoutBuilder {
 impl DefaultWidgetBuilder for FoldoutBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         let content = Self::spawn_content_root(commands);
         let root = FoldoutBuilder::new("Foldout").build_with_entity(commands, content, theme);

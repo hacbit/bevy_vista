@@ -75,22 +75,8 @@ impl InspectorDriverAppExt for App {
     }
 }
 
-pub(super) fn install_inspector_drivers(app: &mut App) {
-    app.init_resource::<InspectorDriverRuntimeRegistry>()
-        .add_systems(
-            Update,
-            run_inspector_driver_apply_hooks
-                .before(refresh_inspector_panel)
-                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-        )
-        .add_systems(
-            Update,
-            run_inspector_driver_sync_hooks
-                .after(sync_widget_property_section)
-                .before(sync_inspector_field_markers)
-                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-        );
-
+pub(super) fn init_inspector_drivers(app: &mut App) {
+    app.init_resource::<InspectorDriverRuntimeRegistry>();
     for driver in default_inspector_drivers() {
         app.register_boxed_inspector_driver(driver);
     }
@@ -312,7 +298,7 @@ impl<'w, 's> InspectorDriverSyncContext<'w, 's> {
     }
 }
 
-fn run_inspector_driver_apply_hooks(world: &mut World) {
+pub(crate) fn run_inspector_driver_apply_hooks(world: &mut World) {
     let mut systems = {
         let mut registry = world.resource_mut::<InspectorDriverRuntimeRegistry>();
         std::mem::take(&mut registry.apply_systems)
@@ -330,7 +316,7 @@ fn run_inspector_driver_apply_hooks(world: &mut World) {
         .apply_systems = systems;
 }
 
-fn run_inspector_driver_sync_hooks(world: &mut World) {
+pub(crate) fn run_inspector_driver_sync_hooks(world: &mut World) {
     let mut systems = {
         let mut registry = world.resource_mut::<InspectorDriverRuntimeRegistry>();
         std::mem::take(&mut registry.sync_systems)

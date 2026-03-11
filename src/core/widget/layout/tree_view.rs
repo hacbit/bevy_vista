@@ -257,7 +257,7 @@ impl TreeViewBuilder {
 impl DefaultWidgetBuilder for TreeViewBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         let result = TreeViewBuilder::new()
             .width(px(240.0))

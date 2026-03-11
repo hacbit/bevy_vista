@@ -1,25 +1,26 @@
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::editor::hierarchy;
-use crate::editor_resources::{VistaEditorSelection, VistaEditorViewOptions};
-use crate::inspector::{
+use crate::core::inspector::runtime::{
+    InspectorBindingTarget, InspectorContentRoot, InspectorControlRegistry,
+    InspectorFieldDecoration, InspectorFieldLabel, InspectorFieldRow, InspectorNameField,
+    InspectorPanelState, InspectorResetButton, InspectorWidgetSectionRoot,
+    InspectorWidgetSectionState, selected_node_style, selected_node_widget_default_reflect,
+    selected_node_widget_reflect,
+};
+use crate::core::inspector::{
     BlueprintCommand, BlueprintRuntimeMap, InspectorEditorRegistry, WidgetBlueprintDocument,
     apply_blueprint_command, reflect_path_differs_from_default,
 };
-use crate::theme::EditorTheme;
-use crate::widget::{
+use crate::core::theme::EditorTheme;
+use crate::core::widget::{
     FoldoutBuilder, LabelWidget, TextField, TextInputChange, TextInputSubmit, WidgetRegistry,
     WidgetStyle,
 };
 
-use super::{
-    InspectorBindingTarget, InspectorContentRoot, InspectorControlRegistry,
-    InspectorFieldDecoration, InspectorFieldLabel, InspectorFieldRow, InspectorNameField,
-    InspectorPanelState, InspectorResetButton, InspectorWidgetSectionRoot,
-    InspectorWidgetSectionState, build_property_entries, selected_node_style,
-    selected_node_widget_default_reflect, selected_node_widget_reflect,
-};
+use super::hierarchy;
+use super::inspector_panel::build_property_entries;
+use super::resources::{VistaEditorSelection, VistaEditorViewOptions};
 
 pub(crate) fn sync_widget_property_section(
     mut commands: Commands,

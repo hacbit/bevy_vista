@@ -2,7 +2,7 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use std::fmt;
 
-use crate::widget::{WidgetChildRule, WidgetRegistry, WidgetStyle};
+use crate::core::widget::{WidgetChildRule, WidgetRegistry, WidgetStyle};
 
 pub type BlueprintNodeId = u64;
 

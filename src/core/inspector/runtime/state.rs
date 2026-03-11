@@ -3,16 +3,16 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::inspector::{
+use crate::core::inspector::{
     BlueprintNodeId, InspectorDriverId, InspectorFieldDescriptor, InspectorFieldEditor,
 };
-use crate::theme::Theme;
+use crate::core::theme::Theme;
 
 use super::driver::{self, InspectorDriver};
 
-pub(crate) fn install_inspector_drivers(app: &mut App) {
+pub(crate) fn init_inspector_runtime(app: &mut App) {
     app.init_resource::<InspectorControlRegistry>();
-    driver::install_inspector_drivers(app);
+    driver::init_inspector_drivers(app);
 }
 
 #[derive(Resource, Default)]
@@ -34,6 +34,14 @@ impl InspectorContext {
 }
 
 pub type InspectorPanelState = InspectorContext;
+
+#[derive(Resource, Default)]
+pub struct VistaEditorViewOptions {
+    pub show_grid: bool,
+    pub snap_to_grid: bool,
+    pub show_outlines: bool,
+    pub is_preview_mode: bool,
+}
 
 #[derive(Resource)]
 pub(crate) struct InspectorControlRegistry {
@@ -62,7 +70,7 @@ impl InspectorControlRegistry {
         driver.supports(editor).then_some(driver)
     }
 
-    pub(super) fn build(
+    pub(crate) fn build(
         &self,
         commands: &mut Commands,
         field: &InspectorFieldDescriptor,
@@ -114,8 +122,8 @@ pub(crate) struct InspectorWidgetSectionRoot;
 
 #[derive(Component, Default)]
 pub(crate) struct InspectorWidgetSectionState {
-    pub(super) selected_node: Option<BlueprintNodeId>,
-    pub(super) widget_path: Option<String>,
+    pub(crate) selected_node: Option<BlueprintNodeId>,
+    pub(crate) widget_path: Option<String>,
 }
 
 #[derive(Component)]
@@ -141,8 +149,8 @@ pub(super) struct InspectorControlOwner {
 
 #[derive(Component, Clone)]
 pub(crate) struct InspectorFieldDecoration {
-    pub(super) field_path: String,
-    pub(super) target: InspectorBindingTarget,
+    pub(crate) field_path: String,
+    pub(crate) target: InspectorBindingTarget,
 }
 
 #[derive(Component)]

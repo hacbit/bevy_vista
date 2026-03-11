@@ -4,8 +4,9 @@ use std::path::{Path, PathBuf};
 use bevy::prelude::*;
 use rfd::FileDialog;
 
-use crate::asset::VistaUiAsset;
-use crate::widget::{ButtonBuilder, LabelBuilder, LabelWidget, WidgetRegistry};
+use crate::core::asset::{VistaUiAsset, VistaUiAssetError};
+use crate::core::inspector::InspectorEditorRegistry;
+use crate::core::widget::{ButtonBuilder, LabelBuilder, LabelWidget, WidgetRegistry};
 
 use super::*;
 
@@ -236,7 +237,7 @@ pub(super) fn apply_document_toolbar_actions(
     mut hierarchy: ResMut<hierarchy::HierarchyState>,
     mut selection: ResMut<VistaEditorSelection>,
     widget_registry: Res<WidgetRegistry>,
-    inspector_registry: Res<crate::inspector::InspectorEditorRegistry>,
+    inspector_registry: Res<InspectorEditorRegistry>,
 ) {
     let Some(action) = toolbar_state.pending_action.take() else {
         return;
@@ -391,7 +392,7 @@ fn save_document(
     path: &Path,
     document: &blueprint::WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
-    inspector_registry: &crate::inspector::InspectorEditorRegistry,
+    inspector_registry: &InspectorEditorRegistry,
 ) -> Result<(), String> {
     let resolved_path = resolve_document_path(path);
     if let Some(parent) = resolved_path.parent()
@@ -450,21 +451,21 @@ fn strip_ui_asset_root(path: &Path) -> Option<PathBuf> {
     None
 }
 
-fn asset_error_to_string(error: crate::asset::VistaUiAssetError) -> String {
+fn asset_error_to_string(error: VistaUiAssetError) -> String {
     match error {
-        crate::asset::VistaUiAssetError::UnsupportedVersion(version) => {
+        VistaUiAssetError::UnsupportedVersion(version) => {
             format!("unsupported asset version {version}")
         }
-        crate::asset::VistaUiAssetError::DuplicateNodeId(id) => {
+        VistaUiAssetError::DuplicateNodeId(id) => {
             format!("duplicate node id {id}")
         }
-        crate::asset::VistaUiAssetError::MissingNode(id) => {
+        VistaUiAssetError::MissingNode(id) => {
             format!("missing node {id}")
         }
-        crate::asset::VistaUiAssetError::MissingChild { parent, child } => {
+        VistaUiAssetError::MissingChild { parent, child } => {
             format!("missing child {child} referenced by {parent}")
         }
-        crate::asset::VistaUiAssetError::InvalidParentLink {
+        VistaUiAssetError::InvalidParentLink {
             child,
             expected_parent,
             actual_parent,
@@ -472,10 +473,9 @@ fn asset_error_to_string(error: crate::asset::VistaUiAssetError) -> String {
             "invalid parent link for node {child}: expected {:?}, actual {:?}",
             expected_parent, actual_parent
         ),
-        crate::asset::VistaUiAssetError::CycleDetected(id) => {
+        VistaUiAssetError::CycleDetected(id) => {
             format!("cycle detected at node {id}")
         }
-        crate::asset::VistaUiAssetError::RonDecode(error)
-        | crate::asset::VistaUiAssetError::RonEncode(error) => error,
+        VistaUiAssetError::RonDecode(error) | VistaUiAssetError::RonEncode(error) => error,
     }
 }

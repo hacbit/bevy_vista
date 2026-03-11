@@ -8,11 +8,14 @@ use bevy::prelude::*;
 use bevy::utils::TypeIdMap;
 
 use crate as bevy_vista;
-use crate::inspector::runtime::InspectorControlRegistry;
-use crate::inspector::{
+use crate::bevy_vista_macros::{ShowInInspector, Widget};
+use crate::core::icons::Icons;
+use crate::core::inspector::runtime::InspectorControlRegistry;
+use crate::core::inspector::{
     InspectorEditorRegistry, InspectorEntryDescriptor, apply_serialized_editor_value,
+    read_reflect_path_mut,
 };
-use crate::prelude::*;
+use crate::core::theme::{Theme, ThemeBoundary, ThemeScope};
 
 pub mod common;
 pub use common::{
@@ -193,7 +196,7 @@ impl WidgetRegistry {
         &self,
         path: &str,
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&Theme>,
     ) -> Option<Entity> {
         self.get_widget_by_path(path)
             .map(|registration| registration.spawn_default(commands, theme).root)
@@ -250,7 +253,7 @@ pub struct WidgetRegistration {
     type_id: TypeId,
     child_rule: WidgetChildRule,
     child_slots: &'static [&'static str],
-    spawn_default_fn: fn(&mut Commands, Option<&crate::theme::Theme>) -> WidgetSpawnResult,
+    spawn_default_fn: fn(&mut Commands, Option<&Theme>) -> WidgetSpawnResult,
     inspector_entries_fn: Option<fn(&InspectorEditorRegistry) -> Vec<InspectorEntryDescriptor>>,
     default_inspector_value_fn: Option<fn() -> Box<dyn bevy::reflect::PartialReflect>>,
     apply_props_fn: Option<
@@ -260,7 +263,7 @@ pub struct WidgetRegistration {
             &HashMap<String, String>,
             &InspectorEditorRegistry,
             Option<&InspectorControlRegistry>,
-            Option<&crate::theme::Theme>,
+            Option<&Theme>,
         ),
     >,
 }
@@ -343,7 +346,7 @@ impl WidgetRegistration {
     pub fn spawn_default(
         &self,
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&Theme>,
     ) -> WidgetSpawnResult {
         (self.spawn_default_fn)(commands, theme)
     }
@@ -364,7 +367,7 @@ impl WidgetRegistration {
         props: &HashMap<String, String>,
         registry: &InspectorEditorRegistry,
         control_registry: Option<&InspectorControlRegistry>,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&Theme>,
     ) {
         if let Some(apply) = self.apply_props_fn {
             apply(commands, entity, props, registry, control_registry, theme);
@@ -398,10 +401,7 @@ where
 }
 
 pub trait DefaultWidgetBuilder {
-    fn spawn_default(
-        commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
-    ) -> WidgetSpawnResult;
+    fn spawn_default(commands: &mut Commands, theme: Option<&Theme>) -> WidgetSpawnResult;
 }
 
 #[derive(Component)]
@@ -616,7 +616,7 @@ pub(crate) fn spawn_blueprint_widget_content(
     widget_path: &str,
     style: &WidgetStyle,
     props: &HashMap<String, String>,
-    theme: Option<&crate::theme::Theme>,
+    theme: Option<&Theme>,
 ) -> Option<WidgetSpawnResult> {
     let registration = registry.get_widget_by_path(widget_path)?;
     let spawn = registration.spawn_default(commands, theme);
@@ -654,7 +654,7 @@ fn apply_widget_props<T>(
     props: &HashMap<String, String>,
     registry: &InspectorEditorRegistry,
     control_registry: Option<&InspectorControlRegistry>,
-    theme: Option<&crate::theme::Theme>,
+    theme: Option<&Theme>,
 ) where
     T: Component + Reflect + Default + Clone + 'static,
 {
@@ -668,8 +668,7 @@ fn apply_widget_props<T>(
         let Some(raw) = props.get(&field.field_path) else {
             continue;
         };
-        let Some(target) = crate::inspector::read_reflect_path_mut(reflect, &field.field_path)
-        else {
+        let Some(target) = read_reflect_path_mut(reflect, &field.field_path) else {
             continue;
         };
         let _ = control_registry.is_some_and(|control_registry| {

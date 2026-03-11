@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-use crate::inspector::InspectorEditorRegistry;
-use crate::inspector::runtime::InspectorControlRegistry;
-use crate::widget::{WidgetRegistry, spawn_blueprint_widget_content};
+use crate::core::inspector::InspectorEditorRegistry;
+use crate::core::inspector::runtime::InspectorControlRegistry;
+use crate::core::widget::{WidgetRegistry, WidgetSpawnResult, spawn_blueprint_widget_content};
 
 use super::*;
 
-pub use crate::inspector::{
+pub use crate::core::inspector::{
     BlueprintCommand, BlueprintNodeId, BlueprintNodeRef, BlueprintRuntimeMap,
     WidgetBlueprintDocument, apply_blueprint_command,
 };
@@ -143,7 +143,7 @@ fn compile_node_recursive(
 
 fn resolve_child_parent_entity(
     document: &WidgetBlueprintDocument,
-    parent_spawn: &crate::widget::WidgetSpawnResult,
+    parent_spawn: &WidgetSpawnResult,
     child_node_id: BlueprintNodeId,
     child_index: usize,
 ) -> Entity {

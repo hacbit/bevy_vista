@@ -6,15 +6,18 @@ use bevy::ecs::system::SystemParam;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
-use crate::asset::{VistaUiAsset, VistaUiAssetError};
-use crate::inspector::runtime::InspectorControlRegistry;
-use crate::inspector::{
+use crate::core::asset::{VistaUiAsset, VistaUiAssetError};
+use crate::core::inspector::runtime::InspectorControlRegistry;
+use crate::core::inspector::{
     BlueprintCommand, BlueprintCommandError, BlueprintNodeId, BlueprintNodeRef,
     BlueprintRuntimeMap, InspectorEditorRegistry, InspectorEntryDescriptor,
-    WidgetBlueprintDocument, apply_blueprint_command,
+    WidgetBlueprintDocument, WidgetBlueprintNode, apply_blueprint_command,
+    apply_serialized_editor_value, collect_non_default_serialized_fields, read_reflect_path_mut,
 };
-use crate::theme::Theme;
-use crate::widget::{Widget, WidgetRegistry, WidgetSpawnResult, spawn_blueprint_widget_content};
+use crate::core::theme::Theme;
+use crate::core::widget::{
+    Widget, WidgetRegistry, WidgetSpawnResult, WidgetStyle, spawn_blueprint_widget_content,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct WidgetDocId(u64);
@@ -281,11 +284,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         Ok(self.query_first_by_widget_path(doc_id, &widget_path, name))
     }
 
-    pub fn style(
-        &self,
-        doc_id: WidgetDocId,
-        node_id: BlueprintNodeId,
-    ) -> Option<&crate::widget::WidgetStyle> {
+    pub fn style(&self, doc_id: WidgetDocId, node_id: BlueprintNodeId) -> Option<&WidgetStyle> {
         self.document(doc_id)?
             .nodes
             .get(&node_id)
@@ -296,7 +295,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         &mut self,
         doc_id: WidgetDocId,
         node_id: BlueprintNodeId,
-        update: impl FnOnce(&mut crate::widget::WidgetStyle),
+        update: impl FnOnce(&mut WidgetStyle),
     ) -> Result<(), WidgetDocError> {
         let Some(document) = self.document_mut(doc_id) else {
             return Err(WidgetDocError::DocumentNotFound(doc_id));
@@ -606,7 +605,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
     fn query_nodes(
         &self,
         doc_id: WidgetDocId,
-        predicate: impl Fn(&crate::inspector::WidgetBlueprintNode) -> bool,
+        predicate: impl Fn(&WidgetBlueprintNode) -> bool,
     ) -> Vec<BlueprintNodeId> {
         let Some(document) = self.document(doc_id) else {
             return Vec::new();
@@ -670,20 +669,13 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
             let Some(raw) = node.props.get(&field.field_path) else {
                 continue;
             };
-            let Some(target) =
-                crate::inspector::read_reflect_path_mut(current.as_mut(), &field.field_path)
-            else {
+            let Some(target) = read_reflect_path_mut(current.as_mut(), &field.field_path) else {
                 continue;
             };
             let _ = self
                 .control_registry
                 .apply_serialized_value(field.editor, target, raw)
-                || crate::inspector::apply_serialized_editor_value(
-                    field.editor,
-                    target,
-                    raw,
-                    self.theme.as_deref(),
-                );
+                || apply_serialized_editor_value(field.editor, target, raw, self.theme.as_deref());
         }
         Ok((registration.full_path(), current, default, entries))
     }
@@ -696,7 +688,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         default: Box<dyn bevy::reflect::PartialReflect>,
         entries: &[InspectorEntryDescriptor],
     ) -> Result<(), WidgetDocError> {
-        let serialized = crate::inspector::collect_non_default_serialized_fields(
+        let serialized = collect_non_default_serialized_fields(
             current.as_ref(),
             default.as_ref(),
             entries,
@@ -828,7 +820,7 @@ fn resolve_child_parent_entity(
 fn collect_matching_nodes(
     document: &WidgetBlueprintDocument,
     node_id: BlueprintNodeId,
-    predicate: &impl Fn(&crate::inspector::WidgetBlueprintNode) -> bool,
+    predicate: &impl Fn(&WidgetBlueprintNode) -> bool,
     output: &mut Vec<BlueprintNodeId>,
 ) {
     let Some(node) = document.nodes.get(&node_id) else {

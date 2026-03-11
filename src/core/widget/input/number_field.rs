@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::theme::Theme;
+use crate::core::theme::Theme;
 
 use super::*;
 
@@ -657,7 +657,7 @@ impl NumberFieldBuilder {
 impl DefaultWidgetBuilder for NumberFieldBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         NumberFieldBuilder::new().build(commands, theme).into()
     }

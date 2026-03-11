@@ -98,7 +98,7 @@ impl DividerBuilder {
 impl DefaultWidgetBuilder for DividerBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         commands
             .spawn(DividerBuilder::new().build(theme))

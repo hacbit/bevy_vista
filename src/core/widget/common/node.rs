@@ -81,7 +81,7 @@ impl NodeBuilder {
 impl DefaultWidgetBuilder for NodeBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        _theme: Option<&crate::theme::Theme>,
+        _theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         commands.spawn(NodeBuilder::new().build()).id().into()
     }

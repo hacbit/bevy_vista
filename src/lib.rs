@@ -7,102 +7,35 @@ pub mod core;
 pub mod editor;
 pub mod runtime;
 
+pub use core::VistaUiCorePlugin;
 pub use core::{asset, icons, inspector, theme, widget};
+pub use editor::VistaUiEditorPlugin;
 pub use editor::{grid, resources as editor_resources};
+pub use runtime::VistaUiRuntimePlugin;
 pub use runtime::widget_doc;
 
 pub mod prelude {
-    pub use super::asset::{
-        VISTA_UI_ASSET_EXTENSION, VISTA_UI_ASSET_VERSION, VistaAssetPlugin, VistaNodeId,
-        VistaUiAsset, VistaUiAssetError, VistaUiNodeAsset, VistaUiSpawnResult,
-    };
-    pub use super::bevy_vista_macros::{ShowInInspector, Widget};
-    pub use super::editor_resources::{
-        EditingMode, VistaEditorActive, VistaEditorCanvasInfo, VistaEditorExpanded,
-        VistaEditorGridInfo, VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
-    };
-    pub use super::icons::{EditorIconsPlugin, Icons};
-    pub use super::inspector::runtime::{
-        InspectorContext, InspectorDriver, InspectorDriverAppExt, InspectorDriverApplyContext,
-        InspectorDriverRuntimeBuilder, InspectorDriverSyncContext,
-    };
-    pub use super::inspector::{
-        BlueprintCommand, BlueprintNodeId, InspectorDriverId, InspectorEditorRegistry,
-        InspectorFieldDescriptor, InspectorFieldEditor, WidgetBlueprintDocument,
-        WidgetBlueprintNode, apply_blueprint_command,
-    };
-    pub use super::theme::{
-        EditorTheme, Theme, ThemeBoundary, ThemeMode, ThemeScope, ViewportThemeState,
-    };
-    pub use super::widget::*;
-    pub use super::widget_doc::{
-        WidgetDocError, WidgetDocId, WidgetDocInstanceId, WidgetDocLiveMut, WidgetDocLiveRef,
-        WidgetDocUtility,
-    };
-    pub use super::{VistaUiPlugin, VistaUiRuntimePlugin};
+    pub use super::VistaUiPlugin;
+    pub use crate::core::prelude::*;
+    pub use crate::editor::prelude::*;
+    pub use crate::runtime::prelude::*;
 }
 
 /// # Vista Ui Editor
 ///
 ///
 pub struct VistaUiPlugin;
-pub struct VistaUiRuntimePlugin;
-
-#[derive(Resource, Default)]
-struct RuntimeUiCoreInitialized;
-
-macro_rules! ensure_plugins_added {
-    ($app:expr, $( $plugin:expr ),* $(,)?) => {
-        $(
-            ensure_plugin_added($app, $plugin);
-        )*
-    }
-}
 
 impl Plugin for VistaUiPlugin {
     fn build(&self, app: &mut App) {
-        use theme::{EditorTheme, Theme, ThemeMode, ViewportThemeState};
-        let default_theme =
-            Theme::quick_from_hex("Default Theme", "#C83A6C", ThemeMode::Dark).unwrap();
-        app.insert_resource(default_theme)
-            .init_resource::<EditorTheme>()
-            .init_resource::<ViewportThemeState>();
-
-        ensure_plugins_added!(
-            app,
-            icons::EditorIconsPlugin,
-            widget::VistaWidgetsPlugin,
-            asset::VistaAssetPlugin
-        );
-        init_runtime_ui(app);
-        grid::load_grid_shader(app);
-        editor_resources::init_vista_editor_resources(app);
-        // canvas::init_canvas(app);
-        editor::init_editor_ui(app);
-    }
-}
-
-impl Plugin for VistaUiRuntimePlugin {
-    fn build(&self, app: &mut App) {
-        ensure_plugins_added!(app, widget::VistaWidgetsPlugin, asset::VistaAssetPlugin);
-        init_runtime_ui(app);
+        ensure_plugin_added(app, editor::VistaUiEditorPlugin);
+        ensure_plugin_added(app, runtime::VistaUiRuntimePlugin);
     }
 }
 
 #[inline]
-fn ensure_plugin_added<T: Plugin>(app: &mut App, plugin: T) {
+pub(crate) fn ensure_plugin_added<T: Plugin>(app: &mut App, plugin: T) {
     if !app.is_plugin_added::<T>() {
         app.add_plugins(plugin);
     }
-}
-
-fn init_runtime_ui(app: &mut App) {
-    if app.world().contains_resource::<RuntimeUiCoreInitialized>() {
-        return;
-    }
-
-    app.init_resource::<inspector::InspectorEditorRegistry>()
-        .init_resource::<widget_doc::WidgetDocStore>()
-        .insert_resource(RuntimeUiCoreInitialized);
-    inspector::runtime::install_inspector_drivers(app);
 }

@@ -6,7 +6,8 @@ use bevy::math::Vec2;
 use bevy::prelude::{Deref, DerefMut};
 use bevy::reflect::Reflect;
 
-use crate::widget::WidgetId;
+pub use crate::core::inspector::runtime::VistaEditorViewOptions;
+use crate::core::widget::WidgetId;
 
 pub(crate) fn init_vista_editor_resources(app: &mut App) {
     app.init_resource::<VistaEditorActive>()
@@ -45,14 +46,6 @@ pub enum EditingMode {
     Move,
     Scale,
     Add,
-}
-
-#[derive(Resource, Default)]
-pub struct VistaEditorViewOptions {
-    pub show_grid: bool,
-    pub snap_to_grid: bool,
-    pub show_outlines: bool,
-    pub is_preview_mode: bool,
 }
 
 #[derive(Resource)]

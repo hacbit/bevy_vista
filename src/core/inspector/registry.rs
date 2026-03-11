@@ -4,14 +4,14 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::reflect::{PartialReflect, Reflect, ReflectRef, VariantType};
 
-use crate::inspector::{
+use crate::core::inspector::{
     INSPECTOR_DRIVER_BOOL, INSPECTOR_DRIVER_CHOICE, INSPECTOR_DRIVER_COLOR,
     INSPECTOR_DRIVER_NUMBER, INSPECTOR_DRIVER_STRING, INSPECTOR_DRIVER_VAL, INSPECTOR_DRIVER_VEC2,
     InspectorEntryDescriptor, InspectorFieldDescriptor, InspectorFieldEditor,
     InspectorFieldOptions, InspectorHeaderDescriptor, InspectorTypeEditorResolver,
     inspector_metadata_for,
 };
-use crate::widget::input::Number;
+use crate::core::widget::input::Number;
 
 #[derive(Resource)]
 pub struct InspectorEditorRegistry {

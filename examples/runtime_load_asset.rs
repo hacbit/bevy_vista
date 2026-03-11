@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use bevy_vista::prelude::*;
+use bevy_vista::runtime::prelude::*;
 
 #[derive(Resource)]
 struct RuntimeDocDemo {

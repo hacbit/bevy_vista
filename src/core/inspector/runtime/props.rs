@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::inspector::{
+use crate::core::inspector::{
     BlueprintCommand, BlueprintNodeId, InspectorEditorRegistry, InspectorEntryDescriptor,
     InspectorFieldEditor, WidgetBlueprintDocument, apply_blueprint_command, read_reflect_path,
     read_reflect_path_mut,
 };
-use crate::widget::{WidgetRegistry, WidgetStyle};
+use crate::core::widget::{WidgetRegistry, WidgetStyle};
 
 use super::{InspectorBindingTarget, InspectorControlRegistry, InspectorPanelState};
 

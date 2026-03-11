@@ -7,9 +7,9 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-use crate::grid::GridUiMaterial;
-use crate::theme::{EditorTheme, ThemeBoundary, ThemeScope, ViewportThemeState};
-use crate::widget::{Dropdown, DropdownBuilder, DropdownChange, LabelBuilder};
+use crate::core::theme::{EditorTheme, ThemeBoundary, ThemeScope, ViewportThemeState};
+use crate::core::widget::{Dropdown, DropdownBuilder, DropdownChange, LabelBuilder};
+use crate::editor::grid::GridUiMaterial;
 
 use super::*;
 

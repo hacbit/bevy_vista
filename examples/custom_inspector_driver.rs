@@ -1,14 +1,15 @@
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
+use bevy_vista::editor::prelude::*;
 use bevy_vista::inspector::{read_bool_field, write_bool_field};
-use bevy_vista::prelude::*;
+use bevy_vista::runtime::prelude::*;
 
 const INSPECTOR_DRIVER_BOOL_DROPDOWN: &str = "example_bool_dropdown";
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(VistaUiPlugin)
+        .add_plugins(VistaUiEditorPlugin)
         .add_plugins(BoolDropdownInspectorPlugin)
         .add_systems(Startup, setup)
         .run();

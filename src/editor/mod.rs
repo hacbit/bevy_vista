@@ -6,21 +6,51 @@ use bevy::ecs::{name::Name, system::Commands};
 use bevy::ui::{Node, Val};
 use bevy::{prelude::*, state::state::FreelyMutableState};
 
+use crate::ensure_plugin_added;
 pub(crate) mod blueprint;
 mod foldable;
 pub(crate) mod hierarchy;
+mod inspector_panel;
+mod inspector_sync;
 mod title_draggable;
 mod toolbar;
 mod viewport;
 mod widget_lib;
 
 use crate::{
+    core,
+    core::prelude::*,
     grid::GridUiMaterial,
     inspector::runtime as inspector,
-    prelude::*,
     theme::{EditorTheme, Theme, ThemeScope},
     widget::{SplitViewAxis, SplitViewBuilder},
 };
+use resources::{
+    VistaEditorActive, VistaEditorCanvasInfo, VistaEditorExpanded, VistaEditorGridInfo,
+    VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
+};
+
+pub mod prelude {
+    pub use super::VistaUiEditorPlugin;
+    pub use super::resources::{
+        EditingMode, VistaEditorActive, VistaEditorCanvasInfo, VistaEditorExpanded,
+        VistaEditorGridInfo, VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
+    };
+    pub use crate::core::prelude::*;
+}
+
+pub struct VistaUiEditorPlugin;
+
+impl Plugin for VistaUiEditorPlugin {
+    fn build(&self, app: &mut App) {
+        ensure_plugin_added(app, core::VistaUiCorePlugin);
+        app.init_resource::<EditorTheme>()
+            .init_resource::<ViewportThemeState>();
+        grid::load_grid_shader(app);
+        resources::init_vista_editor_resources(app);
+        init_editor_ui(app);
+    }
+}
 
 pub(crate) fn init_editor_ui(app: &mut App) {
     use VistaEditorInitPhase::*;
@@ -58,7 +88,7 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                 viewport::init_viewport_panel,
                 widget_lib::init_widget_lib_panel,
                 hierarchy::init_hierarchy_panel,
-                inspector::init_inspector_panel,
+                inspector_panel::init_inspector_panel,
                 toolbar::init_status_bar,
                 change_state_to(ElementInteractable),
             ),
@@ -92,13 +122,20 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                 )
                     .chain(),
                 (
-                    inspector::sync_inspector_context_from_editor_selection,
-                    inspector::apply_inspector_name_changes,
-                    inspector::refresh_inspector_panel,
-                    inspector::sync_widget_property_section,
-                    inspector::sync_inspector_field_markers,
+                    inspector_sync::sync_inspector_context_from_editor_selection,
+                    inspector_sync::apply_inspector_name_changes,
+                    inspector_sync::refresh_inspector_panel,
+                    inspector_sync::sync_widget_property_section,
+                    inspector_sync::sync_inspector_field_markers,
                 )
                     .chain(),
+                inspector::run_inspector_driver_apply_hooks
+                    .before(inspector_sync::refresh_inspector_panel)
+                    .run_if(in_state(Finalize)),
+                inspector::run_inspector_driver_sync_hooks
+                    .after(inspector_sync::sync_widget_property_section)
+                    .before(inspector_sync::sync_inspector_field_markers)
+                    .run_if(in_state(Finalize)),
                 viewport::toggle_preview_mode_with_key,
                 viewport::update_canvas_widget_handles_for_mode,
                 viewport::update_canvas_widget_selection_visual,

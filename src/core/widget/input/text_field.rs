@@ -9,7 +9,7 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-use crate::theme::resolve_theme_or_global;
+use crate::core::theme::resolve_theme_or_global;
 
 use super::*;
 
@@ -375,7 +375,7 @@ impl TextFieldBuilder {
 impl DefaultWidgetBuilder for TextFieldBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         TextFieldBuilder::new().build(commands, theme).into()
     }

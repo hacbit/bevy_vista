@@ -127,7 +127,7 @@ impl CheckboxBuilder {
 impl DefaultWidgetBuilder for CheckboxBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        theme: Option<&crate::theme::Theme>,
+        theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         CheckboxBuilder::new().build(commands, theme).into()
     }

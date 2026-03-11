@@ -9,10 +9,15 @@ use ron::ser::PrettyConfig;
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Serialize};
 
-use crate::inspector::InspectorEditorRegistry;
-use crate::inspector::{BlueprintNodeId, WidgetBlueprintDocument, WidgetBlueprintNode};
-use crate::theme::Theme;
-use crate::widget::{WidgetRegistry, WidgetStyle, spawn_blueprint_widget_content};
+use crate::core::inspector::{
+    BlueprintNodeId, InspectorEditorRegistry, InspectorEntryDescriptor, WidgetBlueprintDocument,
+    WidgetBlueprintNode, apply_serialized_editor_value, collect_non_default_serialized_fields,
+    read_reflect_path_mut,
+};
+use crate::core::theme::Theme;
+use crate::core::widget::{
+    WidgetRegistry, WidgetSpawnResult, WidgetStyle, spawn_blueprint_widget_content,
+};
 
 pub const VISTA_UI_ASSET_VERSION: u32 = 1;
 pub const VISTA_UI_ASSET_EXTENSION: &str = "vista.ron";
@@ -471,7 +476,7 @@ fn spawn_asset_node_recursive(
 
 fn resolve_asset_child_parent_entity(
     document: &WidgetBlueprintDocument,
-    parent_spawn: &crate::widget::WidgetSpawnResult,
+    parent_spawn: &WidgetSpawnResult,
     child_node_id: VistaNodeId,
     child_index: usize,
 ) -> Entity {
@@ -571,7 +576,7 @@ fn serialize_widget_style_overrides(
     inspector_registry: &InspectorEditorRegistry,
 ) -> Result<HashMap<String, String>, VistaUiAssetError> {
     let entries = inspector_registry.entries_for::<WidgetStyle>();
-    Ok(crate::inspector::collect_non_default_serialized_fields(
+    Ok(collect_non_default_serialized_fields(
         style,
         &WidgetStyle::default(),
         &entries,
@@ -595,7 +600,7 @@ fn serialize_widget_prop_overrides(
     };
     let entries = registration.inspector_entries(inspector_registry);
     apply_serialized_field_overrides(current_value.as_mut(), &entries, &node.props, None);
-    Ok(crate::inspector::collect_non_default_serialized_fields(
+    Ok(collect_non_default_serialized_fields(
         current_value.as_ref(),
         default_value.as_ref(),
         &entries,
@@ -605,22 +610,21 @@ fn serialize_widget_prop_overrides(
 
 fn apply_serialized_field_overrides(
     reflect: &mut dyn bevy::reflect::PartialReflect,
-    entries: &[crate::inspector::InspectorEntryDescriptor],
+    entries: &[InspectorEntryDescriptor],
     values: &HashMap<String, String>,
     theme: Option<&Theme>,
 ) {
     for entry in entries {
-        let crate::inspector::InspectorEntryDescriptor::Field(field) = entry else {
+        let InspectorEntryDescriptor::Field(field) = entry else {
             continue;
         };
         let Some(raw) = values.get(&field.field_path) else {
             continue;
         };
-        let Some(target) = crate::inspector::read_reflect_path_mut(reflect, &field.field_path)
-        else {
+        let Some(target) = read_reflect_path_mut(reflect, &field.field_path) else {
             continue;
         };
-        let _ = crate::inspector::apply_serialized_editor_value(field.editor, target, raw, theme);
+        let _ = apply_serialized_editor_value(field.editor, target, raw, theme);
     }
 }
 
@@ -631,7 +635,7 @@ fn serializable_style_is_empty(style: &SerializableVistaUiStyle) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::editor::blueprint::{BlueprintCommand, apply_blueprint_command};
+    use crate::core::inspector::{BlueprintCommand, apply_blueprint_command};
 
     #[test]
     fn vista_ui_asset_round_trips_blueprint_document() {

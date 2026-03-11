@@ -207,7 +207,7 @@ impl ScrollViewBuilder {
 impl DefaultWidgetBuilder for ScrollViewBuilder {
     fn spawn_default(
         commands: &mut Commands,
-        _theme: Option<&crate::theme::Theme>,
+        _theme: Option<&crate::core::theme::Theme>,
     ) -> WidgetSpawnResult {
         let content = Self::spawn_content_root(commands);
         let root = ScrollViewBuilder::new()

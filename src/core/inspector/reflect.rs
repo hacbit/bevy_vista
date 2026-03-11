@@ -2,13 +2,13 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::reflect::{DynamicEnum, PartialReflect, ReflectMut, ReflectRef, VariantType};
 
-use crate::inspector::{
+use crate::core::inspector::{
     INSPECTOR_DRIVER_BOOL, INSPECTOR_DRIVER_CHOICE, INSPECTOR_DRIVER_COLOR,
     INSPECTOR_DRIVER_NUMBER, INSPECTOR_DRIVER_STRING, INSPECTOR_DRIVER_VAL, INSPECTOR_DRIVER_VEC2,
     InspectorDriverId, InspectorEntryDescriptor, InspectorFieldEditor,
 };
-use crate::theme::Theme;
-use crate::widget::input::{Number, NumberKind};
+use crate::core::theme::Theme;
+use crate::core::widget::input::{Number, NumberKind};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InspectorValUnit {

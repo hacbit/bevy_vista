@@ -1,25 +1,25 @@
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::editor::VistaMarker::Inspector;
-use crate::editor_resources::VistaEditorViewOptions;
-use crate::icons::Icons;
-use crate::inspector::{
-    InspectorEditorRegistry, InspectorEntryDescriptor, InspectorFieldDescriptor,
-    InspectorHeaderDescriptor, WidgetBlueprintDocument, read_reflect_path, read_reflect_path_mut,
-};
-use crate::theme::{EditorTheme, Theme};
-use crate::widget::{
-    ButtonWidget, FoldoutBuilder, LabelBuilder, ScrollViewBuilder, TextFieldBuilder,
-    WidgetRegistry, WidgetStyle,
-};
-
-use super::{
+use crate::core::icons::Icons;
+use crate::core::inspector::runtime::{
     InspectorBindingTarget, InspectorContentRoot, InspectorControlRegistry,
     InspectorFieldDecoration, InspectorFieldLabel, InspectorFieldRow, InspectorNameField,
     InspectorPanelState, InspectorResetButton, InspectorWidgetSectionRoot,
     InspectorWidgetSectionState, apply_style_change, clear_widget_prop_change, find_ancestor_with,
 };
+use crate::core::inspector::{
+    InspectorEditorRegistry, InspectorEntryDescriptor, InspectorFieldDescriptor,
+    InspectorHeaderDescriptor, WidgetBlueprintDocument, read_reflect_path, read_reflect_path_mut,
+};
+use crate::core::theme::{EditorTheme, Theme};
+use crate::core::widget::{
+    ButtonWidget, FoldoutBuilder, LabelBuilder, ScrollViewBuilder, TextFieldBuilder,
+    WidgetRegistry, WidgetStyle,
+};
+
+use super::VistaMarker::Inspector;
+use super::resources::VistaEditorViewOptions;
 
 pub(crate) fn init_inspector_panel(
     mut commands: Commands,
