@@ -1,66 +1,91 @@
+//! `bevy_vista` provides a document-driven UI editor and runtime workflow for
+//! Bevy UI.
+//!
+//! The crate is organized into three layers:
+//! - [`core`]: shared data models, widgets, themes, assets, and inspector
+//!   metadata
+//! - [`runtime`]: runtime document loading, mutation, spawning, and live widget
+//!   access
+//! - [`editor`]: editor overlay, viewport tooling, hierarchy, and inspector UI
+//!
+//! For most users:
+//! - use [`prelude`] for the full experience
+//! - use [`runtime::prelude`] for runtime-only loading and document workflows
+//! - use [`editor::prelude`] for the editor overlay
+//!
+//! If you are browsing the API for the first time, good starting points are:
+//! - [`VistaUiPlugin`]
+//! - [`VistaUiRuntimePlugin`]
+//! - [`runtime::widget_doc::WidgetDocUtility`]
+//! - [`core::asset::VistaUiAsset`]
+//!
+//! See the repository `README.md`, `docs/USAGE.md`, and the `examples/`
+//! directory for end-to-end usage.
 #![deny(unsafe_code)]
+
+extern crate self as bevy_vista;
 
 use bevy::prelude::*;
 pub use bevy_vista_macros;
 
-pub mod asset;
+pub mod core;
 pub mod editor;
-pub mod editor_resources;
-pub mod grid;
-pub mod icons;
-pub mod inspector;
-pub mod theme;
-pub mod widget;
+pub mod runtime;
 
+pub use core::VistaUiCorePlugin;
+pub use core::{asset, icons, inspector, theme, widget};
+pub use editor::VistaUiEditorPlugin;
+pub use editor::{grid, resources as editor_resources};
+pub use runtime::VistaUiRuntimePlugin;
+pub use runtime::widget_doc;
+
+/// Convenience imports for the full editor + runtime setup.
+///
+/// This prelude re-exports the layered preludes from:
+/// - [`crate::core::prelude`]
+/// - [`crate::runtime::prelude`]
+/// - [`crate::editor::prelude`]
+///
+/// # Example
+/// ```no_run
+/// use bevy::prelude::*;
+/// use bevy_vista::prelude::*;
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_plugins(VistaUiPlugin)
+///         .run();
+/// }
+/// ```
 pub mod prelude {
     pub use super::VistaUiPlugin;
-    pub use super::asset::*;
-    pub use super::bevy_vista_macros::Widget;
-    pub use super::editor_resources::*;
-    pub use super::icons::{EditorIconsPlugin, Icons};
-    pub use super::theme::{
-        EditorTheme, Theme, ThemeBoundary, ThemeMode, ThemeScope, ViewportThemeState,
-    };
-    pub use super::widget::*;
+    pub use crate::core::prelude::*;
+    pub use crate::editor::prelude::*;
+    pub use crate::runtime::prelude::*;
 }
 
-/// # Vista Ui Editor
+/// Full Vista UI setup.
 ///
+/// This plugin installs both [`VistaUiEditorPlugin`] and
+/// [`VistaUiRuntimePlugin`]. Use it when you want the editor overlay and the
+/// runtime document APIs in the same app.
 ///
+/// For layer-specific setups, prefer:
+/// - [`VistaUiCorePlugin`]
+/// - [`VistaUiRuntimePlugin`]
+/// - [`VistaUiEditorPlugin`]
 pub struct VistaUiPlugin;
-
-macro_rules! ensure_plugins_added {
-    ($app:expr, $( $plugin:expr ),* $(,)?) => {
-        $(
-            ensure_plugin_added($app, $plugin);
-        )*
-    }
-}
 
 impl Plugin for VistaUiPlugin {
     fn build(&self, app: &mut App) {
-        use theme::{EditorTheme, Theme, ThemeMode, ViewportThemeState};
-        let default_theme =
-            Theme::quick_from_hex("Default Theme", "#C83A6C", ThemeMode::Dark).unwrap();
-        app.insert_resource(default_theme)
-            .init_resource::<EditorTheme>()
-            .init_resource::<ViewportThemeState>();
-
-        ensure_plugins_added!(
-            app,
-            icons::EditorIconsPlugin,
-            widget::VistaWidgetsPlugin,
-            asset::VistaAssetPlugin
-        );
-        grid::load_grid_shader(app);
-        editor_resources::init_vista_editor_resources(app);
-        // canvas::init_canvas(app);
-        editor::init_editor_ui(app);
+        ensure_plugin_added(app, editor::VistaUiEditorPlugin);
+        ensure_plugin_added(app, runtime::VistaUiRuntimePlugin);
     }
 }
 
 #[inline]
-fn ensure_plugin_added<T: Plugin>(app: &mut App, plugin: T) {
+pub(crate) fn ensure_plugin_added<T: Plugin>(app: &mut App, plugin: T) {
     if !app.is_plugin_added::<T>() {
         app.add_plugins(plugin);
     }

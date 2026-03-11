@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_vista::prelude::*;
+use bevy_vista::editor::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(VistaUiPlugin)
+        .add_plugins(VistaUiEditorPlugin)
         .add_plugins((EguiPlugin::default(), WorldInspectorPlugin::new()))
         .add_systems(Startup, setup)
         .add_systems(

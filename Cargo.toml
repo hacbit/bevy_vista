@@ -14,6 +14,7 @@ bevy = { version = "0.17", default-features = false, features = [
     "bevy_text",
     "bevy_log",
     "bevy_winit",
+    "x11",
     "reflect_auto_register",
     "serialize",
     "png",
@@ -35,7 +36,7 @@ proc-macro2 = "1.0"
 
 [package]
 name = "bevy_vista"
-version = "0.17.0"
+version = "0.17.1"
 edition = "2024"
 description = "A visual UI editor plugin for Bevy with inspector-driven editing and .vista.ron serialization."
 keywords = ["bevy", "editor", "ui"]
@@ -69,10 +70,14 @@ bevy_egui.workspace = true
 bevy-inspector-egui.workspace = true
 
 [dependencies.bevy_vista_macros]
-version = "0.17.0"
+version = "0.17.1"
 path = "crates/bevy_vista_macros"
 
 [[example]]
 # short name for quick testing
 name = "full"
 path = "examples/quick_full_editor.rs"
+
+[lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"

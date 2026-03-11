@@ -2,14 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 
-use crate::widget::{
-    TreeNodeBuilder, TreeNodeHeader, TreeNodeItemId, TreeViewBuilder, spawn_tree_node,
-};
+use crate::core::widget::layout::spawn_tree_node;
+use crate::core::widget::{TreeNodeBuilder, TreeNodeHeader, TreeNodeItemId, TreeViewBuilder};
 
 use super::*;
 
 #[derive(Resource)]
-pub(super) struct HierarchyState {
+pub(crate) struct HierarchyState {
     pub dirty: bool,
 }
 
@@ -354,7 +353,6 @@ fn on_hierarchy_item_drag_end(
     mut row_bg: Query<&mut BackgroundColor>,
     mut drag: ResMut<HierarchyDragState>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     mut state: ResMut<HierarchyState>,
 ) {
@@ -382,7 +380,6 @@ fn on_hierarchy_item_drag_end(
                     index: None,
                 },
                 &mut document,
-                &schemas,
                 &widget_registry,
             );
             state.dirty = true;
@@ -395,7 +392,6 @@ fn on_hierarchy_item_drag_end(
                     index: None,
                 },
                 &mut document,
-                &schemas,
                 &widget_registry,
             );
             state.dirty = true;
@@ -426,7 +422,6 @@ fn on_hierarchy_content_drag_end(
     mut row_bg: Query<&mut BackgroundColor>,
     mut drag: ResMut<HierarchyDragState>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<blueprint::WidgetSchemaRegistry>,
     mut document: ResMut<blueprint::WidgetBlueprintDocument>,
     mut state: ResMut<HierarchyState>,
 ) {
@@ -445,7 +440,6 @@ fn on_hierarchy_content_drag_end(
                 index: None,
             },
             &mut document,
-            &schemas,
             &widget_registry,
         );
     }

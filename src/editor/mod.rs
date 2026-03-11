@@ -1,23 +1,75 @@
+//! Vista UI editor overlay.
+//!
+//! This module contains the editor-specific UI and interactions built on top of
+//! [`crate::core`], including:
+//! - viewport and preview tooling
+//! - hierarchy panel
+//! - inspector panel
+//! - toolbar and document actions
+//! - editor-only resources and mode state
+//!
+//! The main entry point is [`VistaUiEditorPlugin`].
+pub mod grid;
+pub mod resources;
+
 use bevy::app::App;
 use bevy::ecs::{name::Name, system::Commands};
 use bevy::ui::{Node, Val};
 use bevy::{prelude::*, state::state::FreelyMutableState};
 
+use crate::ensure_plugin_added;
 pub(crate) mod blueprint;
 mod foldable;
-mod hierarchy;
-mod inspector;
+pub(crate) mod hierarchy;
+mod inspector_panel;
+mod inspector_sync;
 mod title_draggable;
 mod toolbar;
 mod viewport;
 mod widget_lib;
 
 use crate::{
+    core,
+    core::prelude::*,
     grid::GridUiMaterial,
-    prelude::*,
+    inspector::runtime as inspector,
     theme::{EditorTheme, Theme, ThemeScope},
     widget::{SplitViewAxis, SplitViewBuilder},
 };
+use resources::{
+    VistaEditorActive, VistaEditorCanvasInfo, VistaEditorExpanded, VistaEditorGridInfo,
+    VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
+};
+
+/// Convenience imports for editor usage.
+///
+/// This prelude re-exports [`crate::core::prelude`] plus editor-only resources
+/// like [`VistaEditorSelection`] and [`VistaEditorMode`].
+pub mod prelude {
+    pub use super::VistaUiEditorPlugin;
+    pub use super::resources::{
+        EditingMode, VistaEditorActive, VistaEditorCanvasInfo, VistaEditorExpanded,
+        VistaEditorGridInfo, VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
+    };
+    pub use crate::core::prelude::*;
+}
+
+/// Vista UI editor overlay.
+///
+/// This plugin builds on [`crate::core::VistaUiCorePlugin`] and installs the
+/// editor panels, viewport tools, hierarchy, and inspector UI.
+pub struct VistaUiEditorPlugin;
+
+impl Plugin for VistaUiEditorPlugin {
+    fn build(&self, app: &mut App) {
+        ensure_plugin_added(app, core::VistaUiCorePlugin);
+        app.init_resource::<EditorTheme>()
+            .init_resource::<ViewportThemeState>();
+        grid::load_grid_shader(app);
+        resources::init_vista_editor_resources(app);
+        init_editor_ui(app);
+    }
+}
 
 pub(crate) fn init_editor_ui(app: &mut App) {
     use VistaEditorInitPhase::*;
@@ -25,13 +77,10 @@ pub(crate) fn init_editor_ui(app: &mut App) {
     app.add_plugins(UiMaterialPlugin::<GridUiMaterial>::default())
         .init_resource::<widget_lib::WidgetLibDragState>()
         .init_resource::<blueprint::WidgetBlueprintDocument>()
-        .init_resource::<blueprint::WidgetSchemaRegistry>()
         .init_resource::<blueprint::BlueprintRuntimeMap>()
         .init_resource::<toolbar::EditorDocumentPath>()
         .init_resource::<toolbar::EditorDocumentToolbarState>()
-        .init_resource::<crate::inspector::InspectorEditorRegistry>()
-        .init_resource::<inspector::InspectorPanelState>()
-        .init_resource::<inspector::InspectorControlRegistry>()
+        .init_resource::<inspector::InspectorContext>()
         .init_resource::<hierarchy::HierarchyState>()
         .init_resource::<hierarchy::HierarchyDragState>()
         .init_resource::<hierarchy::HierarchyTreeCache>()
@@ -58,7 +107,7 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                 viewport::init_viewport_panel,
                 widget_lib::init_widget_lib_panel,
                 hierarchy::init_hierarchy_panel,
-                inspector::init_inspector_panel,
+                inspector_panel::init_inspector_panel,
                 toolbar::init_status_bar,
                 change_state_to(ElementInteractable),
             ),
@@ -92,24 +141,20 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                 )
                     .chain(),
                 (
-                    inspector::apply_inspector_name_changes,
-                    inspector::apply_inspector_numeric_changes,
-                    inspector::apply_inspector_string_changes,
-                    inspector::apply_inspector_dropdown_changes,
-                    inspector::apply_inspector_checkbox_changes,
-                    inspector::apply_inspector_color_changes,
-                    inspector::refresh_inspector_panel,
-                    inspector::sync_widget_property_section,
-                    inspector::sync_inspector_numeric_controls,
-                    inspector::sync_inspector_string_controls,
-                    inspector::sync_inspector_dropdown_controls,
-                    inspector::sync_inspector_checkbox_controls,
-                    inspector::sync_inspector_color_controls,
-                    inspector::sync_inspector_val_controls,
-                    inspector::sync_inspector_vec2_controls,
-                    inspector::sync_inspector_field_markers,
+                    inspector_sync::sync_inspector_context_from_editor_selection,
+                    inspector_sync::apply_inspector_name_changes,
+                    inspector_sync::refresh_inspector_panel,
+                    inspector_sync::sync_widget_property_section,
+                    inspector_sync::sync_inspector_field_markers,
                 )
                     .chain(),
+                inspector::run_inspector_driver_apply_hooks
+                    .before(inspector_sync::refresh_inspector_panel)
+                    .run_if(in_state(Finalize)),
+                inspector::run_inspector_driver_sync_hooks
+                    .after(inspector_sync::sync_widget_property_section)
+                    .before(inspector_sync::sync_inspector_field_markers)
+                    .run_if(in_state(Finalize)),
                 viewport::toggle_preview_mode_with_key,
                 viewport::update_canvas_widget_handles_for_mode,
                 viewport::update_canvas_widget_selection_visual,
@@ -131,7 +176,7 @@ pub(crate) fn init_editor_ui(app: &mut App) {
 }
 
 #[derive(States, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
-enum VistaEditorInitPhase {
+pub(crate) enum VistaEditorInitPhase {
     Pending,
     /// Only ui nodes and some required marker component.
     BasicLayout,
@@ -376,7 +421,8 @@ fn spawn_content_panels(
         .id();
     let left_split = SplitViewBuilder::new()
         .axis(SplitViewAxis::Vertical)
-        .build_with_entities(&mut commands, widget_lib, hierarchy, theme);
+        .build_with_entities(&mut commands, widget_lib, hierarchy, theme)
+        .root;
 
     let viewport = commands
         .spawn((Name::new("Viewport"), Node::default(), Viewport))
@@ -388,13 +434,15 @@ fn spawn_content_panels(
         .default_first_size(Val::Percent(50.))
         .min_first_size(Val::Percent(30.))
         .min_second_size(Val::Px(100.))
-        .build_with_entities(&mut commands, viewport, inspector, theme);
+        .build_with_entities(&mut commands, viewport, inspector, theme)
+        .root;
 
     let content_split = SplitViewBuilder::new()
         .default_first_size(Val::Percent(30.))
         .min_first_size(Val::Percent(20.))
         .min_second_size(Val::Percent(50.))
-        .build_with_entities(&mut commands, left_split, right_split, theme);
+        .build_with_entities(&mut commands, left_split, right_split, theme)
+        .root;
 
     commands
         .entity(*content_ui)

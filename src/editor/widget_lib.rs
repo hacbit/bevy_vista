@@ -1,6 +1,6 @@
 use bevy::window::PrimaryWindow;
 
-use crate::widget::*;
+use crate::core::widget::{TreeNodeBuilder, TreeNodeState, TreeViewBuilder, WidgetRegistry};
 
 use super::*;
 
@@ -165,7 +165,6 @@ pub(super) fn on_widget_tree_drag_end(
     mut commands: Commands,
     window: Single<&Window, With<PrimaryWindow>>,
     widget_registry: Res<WidgetRegistry>,
-    schemas: Res<super::blueprint::WidgetSchemaRegistry>,
     runtime_map: Res<super::blueprint::BlueprintRuntimeMap>,
     elements_container: Single<
         (Entity, &ComputedNode, &UiGlobalTransform),
@@ -207,7 +206,6 @@ pub(super) fn on_widget_tree_drag_end(
                         widget_path: widget_id.to_owned(),
                     },
                     &mut document,
-                    &schemas,
                     &widget_registry,
                 ));
             }
@@ -218,7 +216,6 @@ pub(super) fn on_widget_tree_drag_end(
                         widget_path: widget_id.to_owned(),
                     },
                     &mut document,
-                    &schemas,
                     &widget_registry,
                 );
             }
@@ -244,7 +241,6 @@ pub(super) fn on_widget_tree_drag_end(
                             widget_path: widget_id.to_owned(),
                         },
                         &mut document,
-                        &schemas,
                         &widget_registry,
                     )
                 } else {
@@ -253,7 +249,6 @@ pub(super) fn on_widget_tree_drag_end(
                             widget_path: widget_id.to_owned(),
                         },
                         &mut document,
-                        &schemas,
                         &widget_registry,
                     )
                 };
@@ -264,7 +259,6 @@ pub(super) fn on_widget_tree_drag_end(
                             widget_path: widget_id.to_owned(),
                         },
                         &mut document,
-                        &schemas,
                         &widget_registry,
                     );
                 }

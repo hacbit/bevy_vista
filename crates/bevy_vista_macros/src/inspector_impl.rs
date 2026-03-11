@@ -23,12 +23,18 @@ pub fn show_in_inspector_derive_impl(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     quote! {
-        impl bevy_vista::inspector::ShowInInspector for #ty {
-            fn inspector_fields() -> ::std::vec::Vec<bevy_vista::inspector::InspectorFieldMetadata> {
+        impl ::bevy_vista::inspector::ShowInInspector for #ty {
+            fn inspector_fields() -> ::std::vec::Vec<::bevy_vista::inspector::InspectorFieldMetadata> {
                 vec![
                     #(#metadata_entries),*
                 ]
             }
+        }
+
+        ::bevy_vista::inspector::__macro_exports::inventory::submit! {
+            ::bevy_vista::inspector::__macro_exports::AutomaticInspectorMetadata(
+                <#ty as ::bevy_vista::inspector::__macro_exports::RegisterForInspectorMetadata>::__auto_register
+            )
         }
     }
     .into()
@@ -48,14 +54,10 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     }
 
     let field_name = ident.to_string();
-    let mut options = quote! { bevy_vista::inspector::InspectorFieldOptions::default() };
+    let mut options = quote! { ::bevy_vista::inspector::InspectorFieldOptions::default() };
 
     if let Some(label) = property.label {
         options = quote! { #options.label(#label) };
-    }
-    if let Some(editor) = property.editor {
-        let editor_tokens = editor_tokens(&editor.value());
-        options = quote! { #options.editor(#editor_tokens) };
     }
     if property.hidden {
         options = quote! { #options.hidden(true) };
@@ -68,7 +70,7 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
         let default_open = property.header_default_open.unwrap_or(true);
         options = quote! {
             #options.header_with_options(
-                bevy_vista::inspector::InspectorHeaderOptions::new(#title)
+                ::bevy_vista::inspector::InspectorHeaderOptions::new(#title)
                     .default_open(#default_open)
             )
         };
@@ -78,58 +80,16 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     }
 
     Some(quote! {
-        bevy_vista::inspector::InspectorFieldMetadata {
+        ::bevy_vista::inspector::InspectorFieldMetadata {
             field_name: #field_name,
             options: #options,
         }
     })
 }
 
-fn editor_tokens(editor: &str) -> proc_macro2::TokenStream {
-    match editor {
-        "f32" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Number(
-                bevy_vista::inspector::InspectorNumberAdapter::F32
-            )
-        },
-        "val_px" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Val(
-                bevy_vista::inspector::InspectorValAdapter::Val
-            )
-        },
-        "ui_rect_all" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Number(
-                bevy_vista::inspector::InspectorNumberAdapter::UiRectAll
-            )
-        },
-        "bool" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Bool(
-                bevy_vista::inspector::InspectorBoolAdapter::Bool
-            )
-        },
-        "visibility" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Bool(
-                bevy_vista::inspector::InspectorBoolAdapter::Visibility
-            )
-        },
-        "unit_enum" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Choice(
-                bevy_vista::inspector::InspectorChoiceAdapter::UnitEnum
-            )
-        },
-        "color_preset" => quote! {
-            bevy_vista::inspector::InspectorResolvedEditor::Choice(
-                bevy_vista::inspector::InspectorChoiceAdapter::ColorPreset
-            )
-        },
-        other => panic!("unknown inspector editor `{other}`"),
-    }
-}
-
 #[derive(Default)]
 struct PropertyArgs {
     label: Option<LitStr>,
-    editor: Option<LitStr>,
     min: Option<Expr>,
     header: Option<LitStr>,
     header_default_open: Option<bool>,
@@ -150,7 +110,6 @@ impl Parse for PropertyArgs {
                 input.parse::<Token![=]>()?;
                 match ident.to_string().as_str() {
                     "label" => args.label = Some(input.parse::<LitStr>()?),
-                    "editor" => args.editor = Some(input.parse::<LitStr>()?),
                     "header" => args.header = Some(input.parse::<LitStr>()?),
                     "default_open" => {
                         args.header_default_open = Some(input.parse::<LitBool>()?.value)
