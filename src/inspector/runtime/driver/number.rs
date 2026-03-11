@@ -11,6 +11,19 @@ pub(super) fn driver() -> Arc<dyn InspectorDriver> {
 
 struct NumberInspectorDriver;
 
+#[derive(Component)]
+struct NumberControlRoot {
+    numeric_min: Option<f32>,
+    value_input: Entity,
+    kind_input: Entity,
+}
+
+#[derive(Component)]
+struct NumberValuePart;
+
+#[derive(Component)]
+struct NumberKindPart;
+
 impl InspectorDriver for NumberInspectorDriver {
     fn id(&self) -> InspectorDriverId {
         INSPECTOR_DRIVER_NUMBER
@@ -43,10 +56,8 @@ impl InspectorDriver for NumberInspectorDriver {
                     column_gap: px(6.0),
                     ..default()
                 },
-                InspectorNumberControl {
-                    field_path: field.field_path.clone(),
+                NumberControlRoot {
                     numeric_min: field.numeric_min,
-                    target: InspectorBindingTarget::Style,
                     value_input,
                     kind_input,
                 },
@@ -55,46 +66,20 @@ impl InspectorDriver for NumberInspectorDriver {
             .id();
         commands
             .entity(value_input)
-            .insert(InspectorNumberValueInput { owner });
+            .insert((InspectorControlOwner { owner }, NumberValuePart));
         commands
             .entity(kind_input)
-            .insert(InspectorNumberKindInput { owner });
+            .insert((InspectorControlOwner { owner }, NumberKindPart));
         owner
     }
 
-    fn retarget_control(
-        &self,
-        commands: &mut Commands,
-        control: Entity,
-        target: InspectorBindingTarget,
-    ) {
-        commands
-            .entity(control)
-            .entry::<InspectorNumberControl>()
-            .and_modify(move |mut binding| {
-                binding.target = target.clone();
-            });
-    }
-
-    fn serialize(
-        &self,
-        _editor: InspectorFieldEditor,
-        field: &dyn PartialReflect,
-        _theme: Option<&Theme>,
-    ) -> Option<String> {
+    fn serialize(&self, field: &dyn PartialReflect) -> Option<String> {
         Some(read_number_field(field)?.serialize())
     }
 
-    fn apply_serialized(
-        &self,
-        _editor: InspectorFieldEditor,
-        field: &mut dyn PartialReflect,
-        raw: &str,
-        numeric_min: Option<f32>,
-        _theme: Option<&Theme>,
-    ) -> bool {
-        parse_number_for_field(field, raw, numeric_min)
-            .is_some_and(|value| write_number_field(field, value, numeric_min))
+    fn apply_serialized(&self, field: &mut dyn PartialReflect, raw: &str) -> bool {
+        parse_number_for_field(field, raw, None)
+            .is_some_and(|value| write_number_field(field, value, None))
     }
 
     fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
@@ -107,40 +92,31 @@ impl InspectorDriver for NumberInspectorDriver {
 fn apply_inspector_number_value_changes(
     mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<NumberFieldChange>,
-    value_inputs: Query<&InspectorNumberValueInput>,
-    number_controls: Query<&InspectorNumberControl>,
-    val_value_inputs: Query<(), With<InspectorValValueInput>>,
-    vec2_axis_inputs: Query<(), With<InspectorVec2AxisInput>>,
+    value_inputs: Query<&InspectorControlOwner, With<NumberValuePart>>,
+    number_controls: Query<&NumberControlRoot>,
 ) {
     if !ctx.can_edit() {
         changes.clear();
         return;
     }
     for change in changes.read() {
-        if val_value_inputs.contains(change.entity) || vec2_axis_inputs.contains(change.entity) {
-            continue;
-        }
         let Ok(input) = value_inputs.get(change.entity) else {
             continue;
         };
         let Ok(control) = number_controls.get(input.owner) else {
             continue;
         };
-        let _ = ctx.apply_to_field(
-            &control.target,
-            &control.field_path,
-            InspectorFieldEditor::new(INSPECTOR_DRIVER_NUMBER),
-            None,
-            |field| write_number_field(field, change.value, control.numeric_min),
-        );
+        let _ = ctx.write_for(change.entity, |field| {
+            write_number_field(field, change.value, control.numeric_min)
+        });
     }
 }
 
 fn apply_inspector_number_kind_changes(
     mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<DropdownChange>,
-    kind_inputs: Query<&InspectorNumberKindInput>,
-    number_controls: Query<&InspectorNumberControl>,
+    kind_inputs: Query<&InspectorControlOwner, With<NumberKindPart>>,
+    number_controls: Query<&NumberControlRoot>,
 ) {
     if !ctx.can_edit() {
         changes.clear();
@@ -156,56 +132,42 @@ fn apply_inspector_number_kind_changes(
         let Some(kind) = number_kind_from_index(change.selected) else {
             continue;
         };
-        let _ = ctx.apply_to_field(
-            &control.target,
-            &control.field_path,
-            InspectorFieldEditor::new(INSPECTOR_DRIVER_NUMBER),
-            None,
-            |field| write_number_kind_field(field, kind, control.numeric_min),
-        );
+        let _ = ctx.write_for(change.entity, |field| {
+            write_number_kind_field(field, kind, control.numeric_min)
+        });
     }
 }
 
 fn sync_inspector_number_controls(
     ctx: InspectorDriverSyncContext,
-    number_controls: Query<&InspectorNumberControl>,
+    number_controls: Query<(Entity, &NumberControlRoot)>,
     mut value_fields: Query<&mut NumberField>,
     mut kind_dropdowns: Query<(&mut Dropdown, &mut Node)>,
 ) {
     if !ctx.changed() {
         return;
     }
-    let Some(selection) = ctx.selection() else {
-        for control in number_controls.iter() {
-            if let Ok(mut field) = value_fields.get_mut(control.value_input) {
-                field.disabled = true;
-            }
-            if let Ok((mut dropdown, mut node)) = kind_dropdowns.get_mut(control.kind_input) {
-                dropdown.disabled = true;
-                node.display = Display::None;
-            }
-        }
-        return;
-    };
-
-    for control in number_controls.iter() {
-        let style_field = selection.source(&control.target, &control.field_path);
-        let Some(style_field) = style_field else {
-            if let Ok(mut field) = value_fields.get_mut(control.value_input) {
-                field.disabled = true;
-            }
-            if let Ok((mut dropdown, mut node)) = kind_dropdowns.get_mut(control.kind_input) {
-                dropdown.disabled = true;
-                node.display = Display::None;
-            }
+    for (entity, control) in number_controls.iter() {
+        if !ctx.is_control(entity, INSPECTOR_DRIVER_NUMBER) {
             continue;
-        };
-        let is_number = style_field.try_downcast_ref::<Number>().is_some();
-        let Some(value) = read_number_field(style_field) else {
+        }
+
+        let value = ctx.read_for(entity, read_number_field);
+        let is_number = ctx
+            .read_for(entity, |field| {
+                Some(field.try_downcast_ref::<Number>().is_some())
+            })
+            .unwrap_or(false);
+
+        let Some(value) = value else {
             if let Ok(mut field) = value_fields.get_mut(control.value_input) {
+                field.value = Number::F32(0.0);
                 field.disabled = true;
             }
             if let Ok((mut dropdown, mut node)) = kind_dropdowns.get_mut(control.kind_input) {
+                dropdown.options = number_kind_options();
+                dropdown.selected = 0;
+                dropdown.expanded = false;
                 dropdown.disabled = true;
                 node.display = Display::None;
             }

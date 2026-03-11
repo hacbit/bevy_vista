@@ -303,8 +303,7 @@ pub(crate) fn spawn_property_row(
             InspectorFieldLabel,
         ))
         .id();
-    let control = control_registry.build(commands, field, theme);
-    control_registry.retarget_control(commands, field.editor, control, target);
+    let control = control_registry.build(commands, field, theme, target);
     let button_widget = ButtonWidget::default();
     let reset_button = commands
         .spawn((

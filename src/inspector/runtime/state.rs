@@ -67,6 +67,7 @@ impl InspectorControlRegistry {
         commands: &mut Commands,
         field: &InspectorFieldDescriptor,
         theme: Option<&Theme>,
+        target: InspectorBindingTarget,
     ) -> Entity {
         let Some(driver) = self.registration_for(field.editor) else {
             panic!(
@@ -74,17 +75,22 @@ impl InspectorControlRegistry {
                 field.editor.driver_id
             );
         };
-        driver.build(commands, field, theme)
+        let control = driver.build(commands, field, theme);
+        commands.entity(control).insert(InspectorControlBinding {
+            field_path: field.field_path.clone(),
+            editor: field.editor,
+            target,
+        });
+        control
     }
 
     pub(super) fn serialize_value(
         &self,
         editor: InspectorFieldEditor,
         field: &dyn PartialReflect,
-        theme: Option<&Theme>,
     ) -> Option<String> {
         let driver = self.registration_for(editor)?;
-        driver.serialize(editor, field, theme)
+        driver.serialize(field)
     }
 
     pub(crate) fn apply_serialized_value(
@@ -92,26 +98,11 @@ impl InspectorControlRegistry {
         editor: InspectorFieldEditor,
         field: &mut dyn PartialReflect,
         raw: &str,
-        numeric_min: Option<f32>,
-        theme: Option<&Theme>,
     ) -> bool {
         let Some(driver) = self.registration_for(editor) else {
             return false;
         };
-        driver.apply_serialized(editor, field, raw, numeric_min, theme)
-    }
-
-    pub(super) fn retarget_control(
-        &self,
-        commands: &mut Commands,
-        editor: InspectorFieldEditor,
-        control: Entity,
-        target: InspectorBindingTarget,
-    ) {
-        let Some(driver) = self.registration_for(editor) else {
-            return;
-        };
-        driver.retarget_control(commands, control, target);
+        driver.apply_serialized(field, raw)
     }
 }
 
@@ -131,7 +122,7 @@ pub(crate) struct InspectorWidgetSectionState {
 pub(crate) struct InspectorNameField;
 
 #[derive(Component, Clone)]
-pub enum InspectorBindingTarget {
+pub(crate) enum InspectorBindingTarget {
     Style,
     WidgetProp,
 }
@@ -143,56 +134,9 @@ pub(super) struct InspectorControlBinding {
     pub(super) target: InspectorBindingTarget,
 }
 
-#[derive(Component, Clone)]
-pub(super) struct InspectorNumberControl {
-    pub(super) field_path: String,
-    pub(super) numeric_min: Option<f32>,
-    pub(super) target: InspectorBindingTarget,
-    pub(super) value_input: Entity,
-    pub(super) kind_input: Entity,
-}
-
 #[derive(Component, Copy, Clone)]
-pub(super) struct InspectorNumberValueInput {
+pub(super) struct InspectorControlOwner {
     pub(super) owner: Entity,
-}
-
-#[derive(Component, Copy, Clone)]
-pub(super) struct InspectorNumberKindInput {
-    pub(super) owner: Entity,
-}
-
-#[derive(Component, Clone)]
-pub(super) struct InspectorValControl {
-    pub(super) field_path: String,
-    pub(super) numeric_min: Option<f32>,
-    pub(super) target: InspectorBindingTarget,
-    pub(super) value_input: Entity,
-    pub(super) unit_input: Entity,
-}
-
-#[derive(Component, Copy, Clone)]
-pub(super) struct InspectorValValueInput {
-    pub(super) owner: Entity,
-}
-
-#[derive(Component, Copy, Clone)]
-pub(super) struct InspectorValUnitInput {
-    pub(super) owner: Entity,
-}
-
-#[derive(Component, Clone)]
-pub(super) struct InspectorVec2Control {
-    pub(super) field_path: String,
-    pub(super) target: InspectorBindingTarget,
-    pub(super) x_input: Entity,
-    pub(super) y_input: Entity,
-}
-
-#[derive(Component, Copy, Clone)]
-pub(super) struct InspectorVec2AxisInput {
-    pub(super) owner: Entity,
-    pub(super) axis: usize,
 }
 
 #[derive(Component, Clone)]

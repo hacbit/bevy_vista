@@ -10,14 +10,18 @@ pub(super) fn driver() -> Arc<dyn InspectorDriver> {
 
 struct ValInspectorDriver;
 
-fn retarget_val_control(commands: &mut Commands, control: Entity, target: InspectorBindingTarget) {
-    commands
-        .entity(control)
-        .entry::<InspectorValControl>()
-        .and_modify(move |mut binding| {
-            binding.target = target.clone();
-        });
+#[derive(Component)]
+struct ValControlRoot {
+    numeric_min: Option<f32>,
+    value_input: Entity,
+    unit_input: Entity,
 }
+
+#[derive(Component)]
+struct ValValuePart;
+
+#[derive(Component)]
+struct ValUnitPart;
 
 fn build_val_control(
     commands: &mut Commands,
@@ -45,10 +49,8 @@ fn build_val_control(
                 column_gap: px(6.0),
                 ..default()
             },
-            InspectorValControl {
-                field_path: field.field_path.clone(),
+            ValControlRoot {
                 numeric_min: field.numeric_min,
-                target: InspectorBindingTarget::Style,
                 value_input,
                 unit_input,
             },
@@ -57,10 +59,10 @@ fn build_val_control(
         .id();
     commands
         .entity(value_input)
-        .insert(InspectorValValueInput { owner });
+        .insert((InspectorControlOwner { owner }, ValValuePart));
     commands
         .entity(unit_input)
-        .insert(InspectorValUnitInput { owner });
+        .insert((InspectorControlOwner { owner }, ValUnitPart));
     owner
 }
 
@@ -77,16 +79,6 @@ impl InspectorDriver for ValInspectorDriver {
     ) -> Entity {
         build_val_control(commands, field, theme)
     }
-
-    fn retarget_control(
-        &self,
-        commands: &mut Commands,
-        control: Entity,
-        target: InspectorBindingTarget,
-    ) {
-        retarget_val_control(commands, control, target);
-    }
-
     fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
         builder.on_apply(apply_inspector_val_numeric_changes);
         builder.on_apply(apply_inspector_val_dropdown_changes);
@@ -97,8 +89,8 @@ impl InspectorDriver for ValInspectorDriver {
 fn apply_inspector_val_numeric_changes(
     mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<NumberFieldChange>,
-    value_inputs: Query<&InspectorValValueInput>,
-    val_controls: Query<&InspectorValControl>,
+    value_inputs: Query<&InspectorControlOwner, With<ValValuePart>>,
+    val_controls: Query<&ValControlRoot>,
 ) {
     if !ctx.can_edit() {
         changes.clear();
@@ -114,21 +106,17 @@ fn apply_inspector_val_numeric_changes(
         let Some(value) = change.value.cast::<f32>() else {
             continue;
         };
-        let _ = ctx.apply_to_field(
-            &control.target,
-            &control.field_path,
-            InspectorFieldEditor::new(INSPECTOR_DRIVER_VAL),
-            None,
-            |field| write_val_number_field(field, value, control.numeric_min),
-        );
+        let _ = ctx.write_for(change.entity, |field| {
+            write_val_number_field(field, value, control.numeric_min)
+        });
     }
 }
 
 fn apply_inspector_val_dropdown_changes(
     mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<DropdownChange>,
-    unit_inputs: Query<&InspectorValUnitInput>,
-    val_controls: Query<&InspectorValControl>,
+    unit_inputs: Query<&InspectorControlOwner, With<ValUnitPart>>,
+    val_controls: Query<&ValControlRoot>,
 ) {
     if !ctx.can_edit() {
         changes.clear();
@@ -141,27 +129,27 @@ fn apply_inspector_val_dropdown_changes(
         let Ok(control) = val_controls.get(input.owner) else {
             continue;
         };
-        let _ = ctx.apply_to_field(
-            &control.target,
-            &control.field_path,
-            InspectorFieldEditor::new(INSPECTOR_DRIVER_VAL),
-            None,
-            |field| write_val_unit_field(field, change.selected, control.numeric_min),
-        );
+        let _ = ctx.write_for(change.entity, |field| {
+            write_val_unit_field(field, change.selected, control.numeric_min)
+        });
     }
 }
 
 fn sync_inspector_val_controls(
     ctx: InspectorDriverSyncContext,
-    val_controls: Query<&InspectorValControl>,
+    val_controls: Query<(Entity, &ValControlRoot)>,
     mut value_fields: Query<&mut NumberField>,
     mut unit_dropdowns: Query<&mut Dropdown>,
 ) {
     if !ctx.changed() {
         return;
     }
-    let Some(selection) = ctx.selection() else {
-        for control in val_controls.iter() {
+    for (entity, control) in val_controls.iter() {
+        if !ctx.is_control(entity, INSPECTOR_DRIVER_VAL) {
+            continue;
+        }
+
+        let Some((value, selected, number_enabled)) = ctx.read_for(entity, read_val_field) else {
             if let Ok(mut field) = value_fields.get_mut(control.value_input) {
                 field.value = Number::F32(0.0);
                 field.disabled = true;
@@ -172,32 +160,17 @@ fn sync_inspector_val_controls(
                 dropdown.expanded = false;
                 dropdown.disabled = true;
             }
-        }
-        return;
-    };
-
-    for control in val_controls.iter() {
-        let source = selection.source(&control.target, &control.field_path);
-        let Some(style_field) = source else {
-            if let Ok(mut field) = value_fields.get_mut(control.value_input) {
-                field.disabled = true;
-            }
-            if let Ok(mut dropdown) = unit_dropdowns.get_mut(control.unit_input) {
-                dropdown.disabled = true;
-            }
             continue;
         };
-        if let Some((value, selected, number_enabled)) = read_val_field(style_field) {
-            if let Ok(mut field) = value_fields.get_mut(control.value_input) {
-                field.value = Number::F32(value);
-                field.disabled = !number_enabled;
-            }
-            if let Ok(mut dropdown) = unit_dropdowns.get_mut(control.unit_input) {
-                dropdown.options = val_unit_options();
-                dropdown.selected = selected;
-                dropdown.expanded = false;
-                dropdown.disabled = false;
-            }
+        if let Ok(mut field) = value_fields.get_mut(control.value_input) {
+            field.value = Number::F32(value);
+            field.disabled = !number_enabled;
+        }
+        if let Ok(mut dropdown) = unit_dropdowns.get_mut(control.unit_input) {
+            dropdown.options = val_unit_options();
+            dropdown.selected = selected;
+            dropdown.expanded = false;
+            dropdown.disabled = false;
         }
     }
 }

@@ -10,6 +10,17 @@ pub(super) fn driver() -> Arc<dyn InspectorDriver> {
 
 struct Vec2InspectorDriver;
 
+#[derive(Component)]
+struct Vec2ControlRoot {
+    x_input: Entity,
+    y_input: Entity,
+}
+
+#[derive(Component)]
+struct Vec2AxisPart {
+    axis: usize,
+}
+
 impl InspectorDriver for Vec2InspectorDriver {
     fn id(&self) -> InspectorDriverId {
         INSPECTOR_DRIVER_VEC2
@@ -43,36 +54,17 @@ impl InspectorDriver for Vec2InspectorDriver {
                     column_gap: px(6.0),
                     ..default()
                 },
-                InspectorVec2Control {
-                    field_path: field.field_path.clone(),
-                    target: InspectorBindingTarget::Style,
-                    x_input,
-                    y_input,
-                },
+                Vec2ControlRoot { x_input, y_input },
             ))
             .add_children(&[x_input, y_input])
             .id();
         commands
             .entity(x_input)
-            .insert(InspectorVec2AxisInput { owner, axis: 0 });
+            .insert((InspectorControlOwner { owner }, Vec2AxisPart { axis: 0 }));
         commands
             .entity(y_input)
-            .insert(InspectorVec2AxisInput { owner, axis: 1 });
+            .insert((InspectorControlOwner { owner }, Vec2AxisPart { axis: 1 }));
         owner
-    }
-
-    fn retarget_control(
-        &self,
-        commands: &mut Commands,
-        control: Entity,
-        target: InspectorBindingTarget,
-    ) {
-        commands
-            .entity(control)
-            .entry::<InspectorVec2Control>()
-            .and_modify(move |mut binding| {
-                binding.target = target.clone();
-            });
     }
 
     fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
@@ -84,75 +76,56 @@ impl InspectorDriver for Vec2InspectorDriver {
 fn apply_inspector_vec2_numeric_changes(
     mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<NumberFieldChange>,
-    axis_inputs: Query<&InspectorVec2AxisInput>,
-    vec2_controls: Query<&InspectorVec2Control>,
+    axis_inputs: Query<(&InspectorControlOwner, &Vec2AxisPart)>,
 ) {
     if !ctx.can_edit() {
         changes.clear();
         return;
     }
     for change in changes.read() {
-        let Ok(input) = axis_inputs.get(change.entity) else {
-            continue;
-        };
-        let Ok(control) = vec2_controls.get(input.owner) else {
+        let Ok((_, input)) = axis_inputs.get(change.entity) else {
             continue;
         };
         let Some(value) = change.value.cast::<f32>() else {
             continue;
         };
-        let _ = ctx.apply_to_field(
-            &control.target,
-            &control.field_path,
-            InspectorFieldEditor::new(INSPECTOR_DRIVER_VEC2),
-            None,
-            |field| write_vec2_axis_field(field, input.axis, value),
-        );
+        let _ = ctx.write_for(change.entity, |field| {
+            write_vec2_axis_field(field, input.axis, value)
+        });
     }
 }
 
 fn sync_inspector_vec2_controls(
     ctx: InspectorDriverSyncContext,
-    vec2_controls: Query<&InspectorVec2Control>,
+    vec2_controls: Query<(Entity, &Vec2ControlRoot)>,
     mut value_fields: Query<&mut NumberField>,
 ) {
     if !ctx.changed() {
         return;
     }
-    let Some(selection) = ctx.selection() else {
-        for control in vec2_controls.iter() {
-            if let Ok(mut field) = value_fields.get_mut(control.x_input) {
-                field.value = Number::F32(0.0);
-                field.disabled = true;
-            }
-            if let Ok(mut field) = value_fields.get_mut(control.y_input) {
-                field.value = Number::F32(0.0);
-                field.disabled = true;
-            }
+    for (entity, control) in vec2_controls.iter() {
+        if !ctx.is_control(entity, INSPECTOR_DRIVER_VEC2) {
+            continue;
         }
-        return;
-    };
 
-    for control in vec2_controls.iter() {
-        let source = selection.source(&control.target, &control.field_path);
-        let Some(style_field) = source else {
+        let Some(value) = ctx.read_for(entity, read_vec2_field) else {
             if let Ok(mut field) = value_fields.get_mut(control.x_input) {
+                field.value = Number::F32(0.0);
                 field.disabled = true;
             }
             if let Ok(mut field) = value_fields.get_mut(control.y_input) {
+                field.value = Number::F32(0.0);
                 field.disabled = true;
             }
             continue;
         };
-        if let Some(value) = read_vec2_field(style_field) {
-            if let Ok(mut field) = value_fields.get_mut(control.x_input) {
-                field.value = Number::F32(value.x);
-                field.disabled = false;
-            }
-            if let Ok(mut field) = value_fields.get_mut(control.y_input) {
-                field.value = Number::F32(value.y);
-                field.disabled = false;
-            }
+        if let Ok(mut field) = value_fields.get_mut(control.x_input) {
+            field.value = Number::F32(value.x);
+            field.disabled = false;
+        }
+        if let Ok(mut field) = value_fields.get_mut(control.y_input) {
+            field.value = Number::F32(value.y);
+            field.disabled = false;
         }
     }
 }

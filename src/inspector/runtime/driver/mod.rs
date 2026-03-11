@@ -28,33 +28,12 @@ pub trait InspectorDriver: Send + Sync + 'static {
         editor.driver_id == self.id()
     }
 
-    fn serialize(
-        &self,
-        _editor: InspectorFieldEditor,
-        _field: &dyn PartialReflect,
-        _theme: Option<&Theme>,
-    ) -> Option<String> {
+    fn serialize(&self, _field: &dyn PartialReflect) -> Option<String> {
         None
     }
 
-    fn apply_serialized(
-        &self,
-        _editor: InspectorFieldEditor,
-        _field: &mut dyn PartialReflect,
-        _raw: &str,
-        _numeric_min: Option<f32>,
-        _theme: Option<&Theme>,
-    ) -> bool {
+    fn apply_serialized(&self, _field: &mut dyn PartialReflect, _raw: &str) -> bool {
         false
-    }
-
-    fn retarget_control(
-        &self,
-        commands: &mut Commands,
-        control: Entity,
-        target: InspectorBindingTarget,
-    ) {
-        retarget_standard_control(commands, control, target);
     }
 
     fn install_runtime(&self, _builder: &mut InspectorDriverRuntimeBuilder) {}
@@ -97,19 +76,20 @@ impl InspectorDriverAppExt for App {
 }
 
 pub(super) fn install_inspector_drivers(app: &mut App) {
-    app.init_resource::<InspectorDriverRuntimeRegistry>().add_systems(
-        Update,
-        run_inspector_driver_apply_hooks
-            .before(refresh_inspector_panel)
-            .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-    )
-    .add_systems(
-        Update,
-        run_inspector_driver_sync_hooks
-            .after(sync_widget_property_section)
-            .before(sync_inspector_field_markers)
-            .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-    );
+    app.init_resource::<InspectorDriverRuntimeRegistry>()
+        .add_systems(
+            Update,
+            run_inspector_driver_apply_hooks
+                .before(refresh_inspector_panel)
+                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
+        )
+        .add_systems(
+            Update,
+            run_inspector_driver_sync_hooks
+                .after(sync_widget_property_section)
+                .before(sync_inspector_field_markers)
+                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
+        );
 
     for driver in default_inspector_drivers() {
         app.register_boxed_inspector_driver(driver);
@@ -126,19 +106,6 @@ fn default_inspector_drivers() -> Vec<Arc<dyn InspectorDriver>> {
         val::driver(),
         vec2::driver(),
     ]
-}
-
-fn retarget_standard_control(
-    commands: &mut Commands,
-    control: Entity,
-    target: InspectorBindingTarget,
-) {
-    commands
-        .entity(control)
-        .entry::<InspectorControlBinding>()
-        .and_modify(move |mut binding| {
-            binding.target = target.clone();
-        });
 }
 
 pub trait DriverApplySystem<Out = ()>: System<In = (), Out = Out> + Send + 'static {}
@@ -235,51 +202,36 @@ struct InspectorDriverRuntimeSystems {
 }
 
 #[derive(SystemParam)]
-pub struct InspectorDriverApplyContext<'w> {
+pub struct InspectorDriverApplyContext<'w, 's> {
     options: Res<'w, VistaEditorViewOptions>,
     panel_state: Res<'w, InspectorPanelState>,
     inspector_registry: Res<'w, InspectorEditorRegistry>,
     control_registry: Res<'w, InspectorControlRegistry>,
     document: ResMut<'w, WidgetBlueprintDocument>,
     widget_registry: Res<'w, WidgetRegistry>,
+    bindings: Query<'w, 's, &'static InspectorControlBinding>,
+    owners: Query<'w, 's, &'static InspectorControlOwner>,
 }
 
-impl<'w> InspectorDriverApplyContext<'w> {
+impl<'w, 's> InspectorDriverApplyContext<'w, 's> {
     pub fn can_edit(&self) -> bool {
         !self.options.is_preview_mode
             && self.panel_state.visible
             && self.panel_state.selected_node.is_some()
     }
 
-    pub(super) fn apply_to_binding<F>(
-        &mut self,
-        binding: &InspectorControlBinding,
-        theme: Option<&Theme>,
-        apply: F,
-    ) -> bool
-    where
-        F: FnOnce(&mut dyn PartialReflect) -> bool,
-    {
-        self.apply_to_field(
-            &binding.target,
-            &binding.field_path,
-            binding.editor,
-            theme,
-            apply,
-        )
+    pub fn is_control(&self, entity: Entity, driver_id: InspectorDriverId) -> bool {
+        self.binding_for(entity)
+            .is_some_and(|binding| binding.editor.driver_id == driver_id)
     }
 
-    pub fn apply_to_field<F>(
-        &mut self,
-        target: &InspectorBindingTarget,
-        field_path: &str,
-        editor: InspectorFieldEditor,
-        theme: Option<&Theme>,
-        apply: F,
-    ) -> bool
+    pub fn write_for<F>(&mut self, entity: Entity, apply: F) -> bool
     where
         F: FnOnce(&mut dyn PartialReflect) -> bool,
     {
+        let Some(binding) = self.binding_for(entity).cloned() else {
+            return false;
+        };
         apply_selected_field_change(
             &InspectorPanelState {
                 selected_node: self.panel_state.selected_node,
@@ -289,25 +241,31 @@ impl<'w> InspectorDriverApplyContext<'w> {
             &self.widget_registry,
             &self.inspector_registry,
             &self.control_registry,
-            target,
-            field_path,
-            editor,
-            theme,
+            &binding.target,
+            &binding.field_path,
+            binding.editor,
             apply,
         )
+    }
+
+    fn binding_for(&self, entity: Entity) -> Option<&InspectorControlBinding> {
+        let entity = self.owners.get(entity).map_or(entity, |owner| owner.owner);
+        self.bindings.get(entity).ok()
     }
 }
 
 #[derive(SystemParam)]
-pub struct InspectorDriverSyncContext<'w> {
+pub struct InspectorDriverSyncContext<'w, 's> {
     panel_state: Res<'w, InspectorPanelState>,
     document: Res<'w, WidgetBlueprintDocument>,
     widget_registry: Res<'w, WidgetRegistry>,
     inspector_registry: Res<'w, InspectorEditorRegistry>,
     control_registry: Res<'w, InspectorControlRegistry>,
+    bindings: Query<'w, 's, &'static InspectorControlBinding>,
+    owners: Query<'w, 's, &'static InspectorControlOwner>,
 }
 
-impl<'w> InspectorDriverSyncContext<'w> {
+impl<'w, 's> InspectorDriverSyncContext<'w, 's> {
     pub fn changed(&self) -> bool {
         self.panel_state.is_changed()
             || self.document.is_changed()
@@ -316,7 +274,17 @@ impl<'w> InspectorDriverSyncContext<'w> {
             || self.control_registry.is_changed()
     }
 
-    pub fn selection(&self) -> Option<InspectorDriverSelection<'_>> {
+    pub fn is_control(&self, entity: Entity, driver_id: InspectorDriverId) -> bool {
+        self.binding_for(entity)
+            .is_some_and(|binding| binding.editor.driver_id == driver_id)
+    }
+
+    pub fn read_for<T>(
+        &self,
+        entity: Entity,
+        read: impl FnOnce(&dyn PartialReflect) -> Option<T>,
+    ) -> Option<T> {
+        let binding = self.binding_for(entity)?;
         let panel_state = InspectorPanelState {
             selected_node: self.panel_state.selected_node,
             visible: self.panel_state.visible,
@@ -328,34 +296,19 @@ impl<'w> InspectorDriverSyncContext<'w> {
             &self.widget_registry,
             &self.inspector_registry,
             &self.control_registry,
-            None,
         );
-        Some(InspectorDriverSelection {
+        let source = selected_binding_source(
             style,
-            widget_reflect,
-        })
-    }
-}
-
-pub struct InspectorDriverSelection<'a> {
-    style: &'a crate::widget::WidgetStyle,
-    widget_reflect: Option<Box<dyn PartialReflect>>,
-}
-
-impl<'a> InspectorDriverSelection<'a> {
-    pub fn source(
-        &self,
-        target: &InspectorBindingTarget,
-        field_path: &str,
-    ) -> Option<&dyn PartialReflect> {
-        selected_binding_source(self.style, self.widget_reflect.as_deref(), target, field_path)
+            widget_reflect.as_deref(),
+            &binding.target,
+            &binding.field_path,
+        )?;
+        read(source)
     }
 
-    pub(super) fn binding_source(
-        &self,
-        binding: &InspectorControlBinding,
-    ) -> Option<&dyn PartialReflect> {
-        self.source(&binding.target, &binding.field_path)
+    fn binding_for(&self, entity: Entity) -> Option<&InspectorControlBinding> {
+        let entity = self.owners.get(entity).map_or(entity, |owner| owner.owner);
+        self.bindings.get(entity).ok()
     }
 }
 
@@ -372,7 +325,9 @@ fn run_inspector_driver_apply_hooks(world: &mut World) {
             )
         });
     }
-    world.resource_mut::<InspectorDriverRuntimeRegistry>().apply_systems = systems;
+    world
+        .resource_mut::<InspectorDriverRuntimeRegistry>()
+        .apply_systems = systems;
 }
 
 fn run_inspector_driver_sync_hooks(world: &mut World) {
@@ -388,5 +343,7 @@ fn run_inspector_driver_sync_hooks(world: &mut World) {
             )
         });
     }
-    world.resource_mut::<InspectorDriverRuntimeRegistry>().sync_systems = systems;
+    world
+        .resource_mut::<InspectorDriverRuntimeRegistry>()
+        .sync_systems = systems;
 }
