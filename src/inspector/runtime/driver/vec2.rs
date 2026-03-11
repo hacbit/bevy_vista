@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use bevy::prelude::*;
-use bevy::reflect::PartialReflect;
 
 use super::*;
 
@@ -76,107 +75,51 @@ impl InspectorDriver for Vec2InspectorDriver {
             });
     }
 
-    fn install_systems(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                apply_inspector_vec2_numeric_changes.before(refresh_inspector_panel),
-                sync_inspector_vec2_controls.after(sync_widget_property_section),
-            )
-                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-        );
+    fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
+        builder.on_apply(apply_inspector_vec2_numeric_changes);
+        builder.on_sync(sync_inspector_vec2_controls);
     }
 }
 
 fn apply_inspector_vec2_numeric_changes(
-    options: Res<VistaEditorViewOptions>,
-    panel_state: Res<InspectorPanelState>,
+    mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<NumberFieldChange>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
-    vec2_axis_inputs: Query<&InspectorVec2AxisInput>,
+    axis_inputs: Query<&InspectorVec2AxisInput>,
     vec2_controls: Query<&InspectorVec2Control>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
 ) {
-    if options.is_preview_mode {
+    if !ctx.can_edit() {
         changes.clear();
         return;
     }
-    let Some(node_id) = panel_state.selected_node else {
-        return;
-    };
-
     for change in changes.read() {
-        let Ok(input) = vec2_axis_inputs.get(change.entity) else {
+        let Ok(input) = axis_inputs.get(change.entity) else {
             continue;
         };
         let Ok(control) = vec2_controls.get(input.owner) else {
             continue;
         };
-        if matches!(control.target, InspectorBindingTarget::WidgetProp) {
-            let Some(mut value) = selected_node_widget_reflect(
-                &panel_state,
-                &document,
-                &widget_registry,
-                &inspector_registry,
-                &control_registry,
-                None,
-            ) else {
-                continue;
-            };
-            let Some(field) = read_reflect_path_mut(value.as_mut(), &control.field_path) else {
-                continue;
-            };
-            let Some(value) = change.value.cast::<f32>() else {
-                continue;
-            };
-            if !write_vec2_axis_field(field, input.axis, value) {
-                continue;
-            }
-            store_widget_prop_change(
-                node_id,
-                &control.field_path,
-                InspectorFieldEditor::new(INSPECTOR_DRIVER_VEC2),
-                field,
-                &mut document,
-                &widget_registry,
-                &control_registry,
-                None,
-            );
-            continue;
-        }
-        let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
-            continue;
-        };
-        let style_reflect: &mut dyn PartialReflect = &mut style;
-        let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
-            continue;
-        };
         let Some(value) = change.value.cast::<f32>() else {
             continue;
         };
-        if !write_vec2_axis_field(field, input.axis, value) {
-            continue;
-        }
-        apply_style_change(node_id, style, &mut document, &widget_registry);
+        let _ = ctx.apply_to_field(
+            &control.target,
+            &control.field_path,
+            InspectorFieldEditor::new(INSPECTOR_DRIVER_VEC2),
+            None,
+            |field| write_vec2_axis_field(field, input.axis, value),
+        );
     }
 }
 
 fn sync_inspector_vec2_controls(
-    panel_state: Res<InspectorPanelState>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
+    ctx: InspectorDriverSyncContext,
     vec2_controls: Query<&InspectorVec2Control>,
     mut value_fields: Query<&mut NumberField>,
 ) {
-    if !panel_state.is_changed() && !document.is_changed() {
+    if !ctx.changed() {
         return;
     }
-
-    let Some(style) = selected_node_style(&panel_state, &document) else {
+    let Some(selection) = ctx.selection() else {
         for control in vec2_controls.iter() {
             if let Ok(mut field) = value_fields.get_mut(control.x_input) {
                 field.value = Number::F32(0.0);
@@ -189,24 +132,9 @@ fn sync_inspector_vec2_controls(
         }
         return;
     };
-    let widget_reflect = selected_node_widget_reflect(
-        &panel_state,
-        &document,
-        &widget_registry,
-        &inspector_registry,
-        &control_registry,
-        None,
-    );
 
     for control in vec2_controls.iter() {
-        let source: Option<&dyn PartialReflect> = match control.target {
-            InspectorBindingTarget::Style => {
-                read_reflect_path(style as &dyn PartialReflect, &control.field_path)
-            }
-            InspectorBindingTarget::WidgetProp => widget_reflect
-                .as_deref()
-                .and_then(|value| read_reflect_path(value, &control.field_path)),
-        };
+        let source = selection.source(&control.target, &control.field_path);
         let Some(style_field) = source else {
             if let Ok(mut field) = value_fields.get_mut(control.x_input) {
                 field.disabled = true;

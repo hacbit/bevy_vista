@@ -2,12 +2,11 @@ use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
 use crate::editor::VistaMarker::Inspector;
-use crate::editor::blueprint;
 use crate::editor_resources::VistaEditorViewOptions;
 use crate::icons::Icons;
 use crate::inspector::{
     InspectorEditorRegistry, InspectorEntryDescriptor, InspectorFieldDescriptor,
-    InspectorHeaderDescriptor, read_reflect_path, read_reflect_path_mut,
+    InspectorHeaderDescriptor, WidgetBlueprintDocument, read_reflect_path, read_reflect_path_mut,
 };
 use crate::theme::{EditorTheme, Theme};
 use crate::widget::{
@@ -392,7 +391,7 @@ pub(crate) fn on_inspector_reset_button_click(
     mut event: On<Pointer<Click>>,
     options: Res<VistaEditorViewOptions>,
     panel_state: Res<InspectorPanelState>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
+    mut document: ResMut<WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
     buttons: Query<&InspectorFieldDecoration, With<InspectorResetButton>>,
     parents: Query<&ChildOf>,

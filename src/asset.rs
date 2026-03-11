@@ -9,7 +9,7 @@ use ron::ser::PrettyConfig;
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Serialize};
 
-use crate::editor::blueprint::{BlueprintNodeId, WidgetBlueprintDocument, WidgetBlueprintNode};
+use crate::inspector::{BlueprintNodeId, WidgetBlueprintDocument, WidgetBlueprintNode};
 use crate::inspector::InspectorEditorRegistry;
 use crate::theme::Theme;
 use crate::widget::{WidgetRegistry, WidgetStyle, spawn_blueprint_widget_content};

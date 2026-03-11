@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::editor::blueprint;
 use crate::editor::hierarchy;
 use crate::editor_resources::{VistaEditorSelection, VistaEditorViewOptions};
-use crate::inspector::{InspectorEditorRegistry, reflect_path_differs_from_default};
+use crate::inspector::{
+    BlueprintCommand, BlueprintRuntimeMap, InspectorEditorRegistry, WidgetBlueprintDocument,
+    apply_blueprint_command, reflect_path_differs_from_default,
+};
 use crate::theme::EditorTheme;
 use crate::widget::{
     FoldoutBuilder, LabelWidget, TextField, TextInputChange, TextInputSubmit, WidgetRegistry,
@@ -22,7 +24,7 @@ use super::{
 pub(crate) fn sync_widget_property_section(
     mut commands: Commands,
     panel_state: Res<InspectorPanelState>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
+    document: Res<WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,
@@ -122,25 +124,19 @@ pub(crate) fn sync_widget_property_section(
     section_state.widget_path = Some(node.widget_path.clone());
 }
 
-pub(crate) fn refresh_inspector_panel(
+pub(crate) fn sync_inspector_context_from_editor_selection(
     options: Res<VistaEditorViewOptions>,
     selection: Res<VistaEditorSelection>,
-    runtime_map: Res<blueprint::BlueprintRuntimeMap>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
+    runtime_map: Res<BlueprintRuntimeMap>,
+    document: Res<WidgetBlueprintDocument>,
     mut panel_state: ResMut<InspectorPanelState>,
-    mut content_root: Single<&mut Node, With<InspectorContentRoot>>,
-    mut name_field: Single<&mut TextField, With<InspectorNameField>>,
 ) {
     if !options.is_changed() && !selection.is_changed() && !document.is_changed() {
         return;
     }
 
     if options.is_preview_mode {
-        content_root.display = Display::None;
-        name_field.disabled = true;
-        panel_state.visible = false;
-        panel_state.selected_node = None;
-        panel_state.widget_path = None;
+        panel_state.clear();
         return;
     }
 
@@ -148,27 +144,45 @@ pub(crate) fn refresh_inspector_panel(
         .selected_entity
         .and_then(|entity| runtime_map.entity_to_node.get(&entity).copied());
     let Some(node_id) = selected_node else {
+        panel_state.clear();
+        return;
+    };
+    if !document.nodes.contains_key(&node_id) {
+        panel_state.clear();
+        return;
+    }
+
+    panel_state.select(node_id);
+}
+
+pub(crate) fn refresh_inspector_panel(
+    panel_state: Res<InspectorPanelState>,
+    document: Res<WidgetBlueprintDocument>,
+    mut content_root: Single<&mut Node, With<InspectorContentRoot>>,
+    mut name_field: Single<&mut TextField, With<InspectorNameField>>,
+) {
+    if !panel_state.is_changed() && !document.is_changed() {
+        return;
+    }
+
+    let Some(node_id) = panel_state.selected_node else {
         content_root.display = Display::None;
         name_field.disabled = true;
-        panel_state.visible = false;
-        panel_state.selected_node = None;
-        panel_state.widget_path = None;
         return;
     };
     let Some(node) = document.nodes.get(&node_id) else {
         content_root.display = Display::None;
         name_field.disabled = true;
-        panel_state.visible = false;
-        panel_state.selected_node = None;
-        panel_state.widget_path = None;
         return;
     };
+    if !panel_state.visible {
+        content_root.display = Display::None;
+        name_field.disabled = true;
+        return;
+    }
 
     content_root.display = Display::Flex;
     name_field.disabled = false;
-    panel_state.visible = true;
-    panel_state.selected_node = Some(node_id);
-    panel_state.widget_path = Some(node.widget_path.clone());
     if name_field.value != node.name {
         name_field.value = node.name.clone();
         name_field.cursor_pos = name_field.value.chars().count();
@@ -182,7 +196,7 @@ pub(crate) fn apply_inspector_name_changes(
     mut changes: MessageReader<TextInputChange>,
     mut submits: MessageReader<TextInputSubmit>,
     name_fields: Query<(), With<InspectorNameField>>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
+    mut document: ResMut<WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
     mut hierarchy: ResMut<hierarchy::HierarchyState>,
 ) {
@@ -210,8 +224,8 @@ pub(crate) fn apply_inspector_name_changes(
     let Some(name) = pending_name else {
         return;
     };
-    let _ = blueprint::apply_blueprint_command(
-        blueprint::BlueprintCommand::SetNodeName {
+    let _ = apply_blueprint_command(
+        BlueprintCommand::SetNodeName {
             node: node_id,
             name,
         },
@@ -223,7 +237,7 @@ pub(crate) fn apply_inspector_name_changes(
 
 pub(crate) fn sync_inspector_field_markers(
     panel_state: Res<InspectorPanelState>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
+    document: Res<WidgetBlueprintDocument>,
     widget_registry: Res<WidgetRegistry>,
     inspector_registry: Res<InspectorEditorRegistry>,
     control_registry: Res<InspectorControlRegistry>,

@@ -3,8 +3,9 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::editor::blueprint;
-use crate::inspector::{InspectorDriverId, InspectorFieldDescriptor, InspectorFieldEditor};
+use crate::inspector::{
+    BlueprintNodeId, InspectorDriverId, InspectorFieldDescriptor, InspectorFieldEditor,
+};
 use crate::theme::Theme;
 
 use super::driver::{self, InspectorDriver};
@@ -15,11 +16,24 @@ pub(crate) fn install_inspector_drivers(app: &mut App) {
 }
 
 #[derive(Resource, Default)]
-pub(crate) struct InspectorPanelState {
-    pub(super) selected_node: Option<blueprint::BlueprintNodeId>,
-    pub(super) widget_path: Option<String>,
-    pub(super) visible: bool,
+pub struct InspectorContext {
+    pub selected_node: Option<BlueprintNodeId>,
+    pub visible: bool,
 }
+
+impl InspectorContext {
+    pub fn clear(&mut self) {
+        self.selected_node = None;
+        self.visible = false;
+    }
+
+    pub fn select(&mut self, node_id: BlueprintNodeId) {
+        self.selected_node = Some(node_id);
+        self.visible = true;
+    }
+}
+
+pub type InspectorPanelState = InspectorContext;
 
 #[derive(Resource)]
 pub(crate) struct InspectorControlRegistry {
@@ -109,7 +123,7 @@ pub(crate) struct InspectorWidgetSectionRoot;
 
 #[derive(Component, Default)]
 pub(crate) struct InspectorWidgetSectionState {
-    pub(super) selected_node: Option<blueprint::BlueprintNodeId>,
+    pub(super) selected_node: Option<BlueprintNodeId>,
     pub(super) widget_path: Option<String>,
 }
 

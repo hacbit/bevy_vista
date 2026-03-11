@@ -97,40 +97,25 @@ impl InspectorDriver for NumberInspectorDriver {
             .is_some_and(|value| write_number_field(field, value, numeric_min))
     }
 
-    fn install_systems(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                apply_inspector_number_value_changes.before(refresh_inspector_panel),
-                apply_inspector_number_kind_changes.before(refresh_inspector_panel),
-                sync_inspector_number_controls.after(sync_widget_property_section),
-            )
-                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-        );
+    fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
+        builder.on_apply(apply_inspector_number_value_changes);
+        builder.on_apply(apply_inspector_number_kind_changes);
+        builder.on_sync(sync_inspector_number_controls);
     }
 }
 
 fn apply_inspector_number_value_changes(
-    options: Res<VistaEditorViewOptions>,
-    panel_state: Res<InspectorPanelState>,
+    mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<NumberFieldChange>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
     value_inputs: Query<&InspectorNumberValueInput>,
     number_controls: Query<&InspectorNumberControl>,
     val_value_inputs: Query<(), With<InspectorValValueInput>>,
     vec2_axis_inputs: Query<(), With<InspectorVec2AxisInput>>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
 ) {
-    if options.is_preview_mode {
+    if !ctx.can_edit() {
         changes.clear();
         return;
     }
-    let Some(node_id) = panel_state.selected_node else {
-        return;
-    };
-
     for change in changes.read() {
         if val_value_inputs.contains(change.entity) || vec2_axis_inputs.contains(change.entity) {
             continue;
@@ -141,68 +126,26 @@ fn apply_inspector_number_value_changes(
         let Ok(control) = number_controls.get(input.owner) else {
             continue;
         };
-        if matches!(control.target, InspectorBindingTarget::WidgetProp) {
-            let Some(mut value) = selected_node_widget_reflect(
-                &panel_state,
-                &document,
-                &widget_registry,
-                &inspector_registry,
-                &control_registry,
-                None,
-            ) else {
-                continue;
-            };
-            let Some(field) = read_reflect_path_mut(value.as_mut(), &control.field_path) else {
-                continue;
-            };
-            if !write_number_field(field, change.value, control.numeric_min) {
-                continue;
-            }
-            store_widget_prop_change(
-                node_id,
-                &control.field_path,
-                InspectorFieldEditor::new(INSPECTOR_DRIVER_NUMBER),
-                field,
-                &mut document,
-                &widget_registry,
-                &control_registry,
-                None,
-            );
-            continue;
-        }
-        let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
-            continue;
-        };
-        let style_reflect: &mut dyn PartialReflect = &mut style;
-        let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
-            continue;
-        };
-        if !write_number_field(field, change.value, control.numeric_min) {
-            continue;
-        }
-        apply_style_change(node_id, style, &mut document, &widget_registry);
+        let _ = ctx.apply_to_field(
+            &control.target,
+            &control.field_path,
+            InspectorFieldEditor::new(INSPECTOR_DRIVER_NUMBER),
+            None,
+            |field| write_number_field(field, change.value, control.numeric_min),
+        );
     }
 }
 
 fn apply_inspector_number_kind_changes(
-    options: Res<VistaEditorViewOptions>,
-    panel_state: Res<InspectorPanelState>,
+    mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<DropdownChange>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
     kind_inputs: Query<&InspectorNumberKindInput>,
     number_controls: Query<&InspectorNumberControl>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
 ) {
-    if options.is_preview_mode {
+    if !ctx.can_edit() {
         changes.clear();
         return;
     }
-    let Some(node_id) = panel_state.selected_node else {
-        return;
-    };
-
     for change in changes.read() {
         let Ok(input) = kind_inputs.get(change.entity) else {
             continue;
@@ -213,64 +156,26 @@ fn apply_inspector_number_kind_changes(
         let Some(kind) = number_kind_from_index(change.selected) else {
             continue;
         };
-        if matches!(control.target, InspectorBindingTarget::WidgetProp) {
-            let Some(mut value) = selected_node_widget_reflect(
-                &panel_state,
-                &document,
-                &widget_registry,
-                &inspector_registry,
-                &control_registry,
-                None,
-            ) else {
-                continue;
-            };
-            let Some(field) = read_reflect_path_mut(value.as_mut(), &control.field_path) else {
-                continue;
-            };
-            if !write_number_kind_field(field, kind, control.numeric_min) {
-                continue;
-            }
-            store_widget_prop_change(
-                node_id,
-                &control.field_path,
-                InspectorFieldEditor::new(INSPECTOR_DRIVER_NUMBER),
-                field,
-                &mut document,
-                &widget_registry,
-                &control_registry,
-                None,
-            );
-            continue;
-        }
-        let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
-            continue;
-        };
-        let style_reflect: &mut dyn PartialReflect = &mut style;
-        let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
-            continue;
-        };
-        if !write_number_kind_field(field, kind, control.numeric_min) {
-            continue;
-        }
-        apply_style_change(node_id, style, &mut document, &widget_registry);
+        let _ = ctx.apply_to_field(
+            &control.target,
+            &control.field_path,
+            InspectorFieldEditor::new(INSPECTOR_DRIVER_NUMBER),
+            None,
+            |field| write_number_kind_field(field, kind, control.numeric_min),
+        );
     }
 }
 
 fn sync_inspector_number_controls(
-    panel_state: Res<InspectorPanelState>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
+    ctx: InspectorDriverSyncContext,
     number_controls: Query<&InspectorNumberControl>,
     mut value_fields: Query<&mut NumberField>,
     mut kind_dropdowns: Query<(&mut Dropdown, &mut Node)>,
 ) {
-    if !panel_state.is_changed() && !document.is_changed() {
+    if !ctx.changed() {
         return;
     }
-
-    let Some(style) = selected_node_style(&panel_state, &document) else {
+    let Some(selection) = ctx.selection() else {
         for control in number_controls.iter() {
             if let Ok(mut field) = value_fields.get_mut(control.value_input) {
                 field.disabled = true;
@@ -282,25 +187,10 @@ fn sync_inspector_number_controls(
         }
         return;
     };
-    let widget_reflect = selected_node_widget_reflect(
-        &panel_state,
-        &document,
-        &widget_registry,
-        &inspector_registry,
-        &control_registry,
-        None,
-    );
 
     for control in number_controls.iter() {
-        let source: Option<&dyn PartialReflect> = match control.target {
-            InspectorBindingTarget::Style => {
-                read_reflect_path(style as &dyn PartialReflect, &control.field_path)
-            }
-            InspectorBindingTarget::WidgetProp => widget_reflect
-                .as_deref()
-                .and_then(|value| read_reflect_path(value, &control.field_path)),
-        };
-        let Some(style_field) = source else {
+        let style_field = selection.source(&control.target, &control.field_path);
+        let Some(style_field) = style_field else {
             if let Ok(mut field) = value_fields.get_mut(control.value_input) {
                 field.disabled = true;
             }
@@ -310,6 +200,7 @@ fn sync_inspector_number_controls(
             }
             continue;
         };
+        let is_number = style_field.try_downcast_ref::<Number>().is_some();
         let Some(value) = read_number_field(style_field) else {
             if let Ok(mut field) = value_fields.get_mut(control.value_input) {
                 field.disabled = true;
@@ -329,7 +220,6 @@ fn sync_inspector_number_controls(
             dropdown.options = number_kind_options();
             dropdown.selected = number_kind_index(value.kind());
             dropdown.expanded = false;
-            let is_number = style_field.try_downcast_ref::<Number>().is_some();
             dropdown.disabled = !is_number;
             node.display = if is_number {
                 Display::Flex

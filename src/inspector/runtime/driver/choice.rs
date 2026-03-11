@@ -62,39 +62,22 @@ impl InspectorDriver for ChoiceInspectorDriver {
         write_choice_field(field, selected, theme)
     }
 
-    fn install_systems(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                apply_inspector_choice_driver_changes.before(refresh_inspector_panel),
-                sync_inspector_choice_controls.after(sync_widget_property_section),
-            )
-                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-        );
+    fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
+        builder.on_apply(apply_inspector_choice_driver_changes);
+        builder.on_sync(sync_inspector_choice_controls);
     }
 }
 
 fn apply_inspector_choice_driver_changes(
-    options: Res<VistaEditorViewOptions>,
-    panel_state: Res<InspectorPanelState>,
-    editor_theme: Res<EditorTheme>,
+    mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<DropdownChange>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
     controls: Query<&InspectorControlBinding>,
     val_unit_inputs: Query<(), With<InspectorValUnitInput>>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
 ) {
-    if options.is_preview_mode {
+    if !ctx.can_edit() {
         changes.clear();
         return;
     }
-    let Some(node_id) = panel_state.selected_node else {
-        return;
-    };
-    let theme = Some(&editor_theme.0);
-
     for change in changes.read() {
         if val_unit_inputs.contains(change.entity) {
             continue;
@@ -105,93 +88,32 @@ fn apply_inspector_choice_driver_changes(
         if control.editor.driver_id != INSPECTOR_DRIVER_CHOICE {
             continue;
         }
-        if matches!(control.target, InspectorBindingTarget::WidgetProp) {
-            let Some(mut value) = selected_node_widget_reflect(
-                &panel_state,
-                &document,
-                &widget_registry,
-                &inspector_registry,
-                &control_registry,
-                theme,
-            ) else {
-                continue;
-            };
-            let Some(field) = read_reflect_path_mut(value.as_mut(), &control.field_path) else {
-                continue;
-            };
-            if !write_choice_field(field, change.selected, theme) {
-                continue;
-            }
-            store_widget_prop_change(
-                node_id,
-                &control.field_path,
-                control.editor,
-                field,
-                &mut document,
-                &widget_registry,
-                &control_registry,
-                theme,
-            );
-            continue;
-        }
-        let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
-            continue;
-        };
-        let style_reflect: &mut dyn PartialReflect = &mut style;
-        let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
-            continue;
-        };
-        if !write_choice_field(field, change.selected, theme) {
-            continue;
-        }
-        apply_style_change(node_id, style, &mut document, &widget_registry);
+        let _ = ctx.apply_to_binding(control, None, |field| write_choice_field(field, change.selected, None));
     }
 }
 
 fn sync_inspector_choice_controls(
-    panel_state: Res<InspectorPanelState>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
-    editor_theme: Res<EditorTheme>,
+    ctx: InspectorDriverSyncContext,
     mut dropdown_controls: Query<(&InspectorControlBinding, &mut Dropdown)>,
 ) {
-    let theme = Some(&editor_theme.0);
-    if !panel_state.is_changed() && !document.is_changed() && !editor_theme.is_changed() {
+    if !ctx.changed() {
         return;
     }
-
-    let Some(style) = selected_node_style(&panel_state, &document) else {
+    let Some(selection) = ctx.selection() else {
         for (binding, mut dropdown) in dropdown_controls.iter_mut() {
             if binding.editor.driver_id != INSPECTOR_DRIVER_CHOICE {
                 continue;
             }
-            dropdown.options = default_choice_options(theme);
+            dropdown.options = default_choice_options(None);
             dropdown.selected = 0;
             dropdown.expanded = false;
             dropdown.disabled = true;
         }
         return;
     };
-    let widget_reflect = selected_node_widget_reflect(
-        &panel_state,
-        &document,
-        &widget_registry,
-        &inspector_registry,
-        &control_registry,
-        theme,
-    );
 
     for (binding, mut dropdown) in dropdown_controls.iter_mut() {
-        let source: Option<&dyn PartialReflect> = match binding.target {
-            InspectorBindingTarget::Style => {
-                read_reflect_path(style as &dyn PartialReflect, &binding.field_path)
-            }
-            InspectorBindingTarget::WidgetProp => widget_reflect
-                .as_deref()
-                .and_then(|value| read_reflect_path(value, &binding.field_path)),
-        };
+        let source = selection.binding_source(binding);
         let Some(style_field) = source else {
             dropdown.disabled = true;
             continue;
@@ -200,7 +122,7 @@ fn sync_inspector_choice_controls(
             dropdown.disabled = true;
             continue;
         }
-        if let Some((options, selected)) = read_choice_field(style_field, theme) {
+        if let Some((options, selected)) = read_choice_field(style_field, None) {
             dropdown.options = options;
             dropdown.selected = selected;
             dropdown.expanded = false;

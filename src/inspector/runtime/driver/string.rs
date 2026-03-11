@@ -55,138 +55,55 @@ impl InspectorDriver for StringInspectorDriver {
         write_string_field(field, raw.to_owned())
     }
 
-    fn install_systems(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                apply_inspector_string_changes.before(refresh_inspector_panel),
-                sync_inspector_string_controls.after(sync_widget_property_section),
-            )
-                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-        );
+    fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
+        builder.on_apply(apply_inspector_string_changes);
+        builder.on_sync(sync_inspector_string_controls);
     }
 }
 
 fn apply_inspector_string_changes(
-    options: Res<VistaEditorViewOptions>,
-    panel_state: Res<InspectorPanelState>,
+    mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<TextInputChange>,
     mut submits: MessageReader<TextInputSubmit>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
     controls: Query<&InspectorControlBinding>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
 ) {
-    if options.is_preview_mode {
+    if !ctx.can_edit() {
         changes.clear();
         submits.clear();
         return;
     }
-    let Some(node_id) = panel_state.selected_node else {
-        return;
-    };
-
     let events = changes
         .read()
         .map(|event| (event.entity, event.value.clone()))
-        .chain(
-            submits
-                .read()
-                .map(|event| (event.entity, event.value.clone())),
-        );
+        .chain(submits.read().map(|event| (event.entity, event.value.clone())));
 
     for (entity, value) in events {
         let Ok(control) = controls.get(entity) else {
             continue;
         };
-        if matches!(control.target, InspectorBindingTarget::WidgetProp) {
-            let Some(mut widget_value) = selected_node_widget_reflect(
-                &panel_state,
-                &document,
-                &widget_registry,
-                &inspector_registry,
-                &control_registry,
-                None,
-            ) else {
-                continue;
-            };
-            let Some(field) = read_reflect_path_mut(widget_value.as_mut(), &control.field_path)
-            else {
-                continue;
-            };
-            if control.editor.driver_id != INSPECTOR_DRIVER_STRING {
-                continue;
-            }
-            if !write_string_field(field, value.clone()) {
-                continue;
-            }
-            store_widget_prop_change(
-                node_id,
-                &control.field_path,
-                control.editor,
-                field,
-                &mut document,
-                &widget_registry,
-                &control_registry,
-                None,
-            );
-            continue;
-        }
-
-        let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
-            continue;
-        };
-        let style_reflect: &mut dyn PartialReflect = &mut style;
-        let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
-            continue;
-        };
         if control.editor.driver_id != INSPECTOR_DRIVER_STRING {
             continue;
         }
-        if !write_string_field(field, value) {
-            continue;
-        }
-        apply_style_change(node_id, style, &mut document, &widget_registry);
+        let _ = ctx.apply_to_binding(control, None, |field| write_string_field(field, value.clone()));
     }
 }
 
 fn sync_inspector_string_controls(
-    panel_state: Res<InspectorPanelState>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
+    ctx: InspectorDriverSyncContext,
     mut string_controls: Query<(&InspectorControlBinding, &mut TextField)>,
 ) {
-    if !panel_state.is_changed() && !document.is_changed() {
+    if !ctx.changed() {
         return;
     }
-
-    let Some(style) = selected_node_style(&panel_state, &document) else {
+    let Some(selection) = ctx.selection() else {
         for (_, mut field) in string_controls.iter_mut() {
             field.disabled = true;
         }
         return;
     };
-    let widget_reflect = selected_node_widget_reflect(
-        &panel_state,
-        &document,
-        &widget_registry,
-        &inspector_registry,
-        &control_registry,
-        None,
-    );
 
     for (binding, mut field) in string_controls.iter_mut() {
-        let source: Option<&dyn PartialReflect> = match binding.target {
-            InspectorBindingTarget::Style => {
-                read_reflect_path(style as &dyn PartialReflect, &binding.field_path)
-            }
-            InspectorBindingTarget::WidgetProp => widget_reflect
-                .as_deref()
-                .and_then(|value| read_reflect_path(value, &binding.field_path)),
-        };
+        let source = selection.binding_source(binding);
         let Some(style_field) = source else {
             field.disabled = true;
             continue;

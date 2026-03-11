@@ -35,7 +35,7 @@ pub(crate) fn init_editor_ui(app: &mut App) {
         .init_resource::<toolbar::EditorDocumentPath>()
         .init_resource::<toolbar::EditorDocumentToolbarState>()
         .init_resource::<crate::inspector::InspectorEditorRegistry>()
-        .init_resource::<inspector::InspectorPanelState>()
+        .init_resource::<inspector::InspectorContext>()
         .init_resource::<hierarchy::HierarchyState>()
         .init_resource::<hierarchy::HierarchyDragState>()
         .init_resource::<hierarchy::HierarchyTreeCache>()
@@ -96,6 +96,7 @@ pub(crate) fn init_editor_ui(app: &mut App) {
                 )
                     .chain(),
                 (
+                    inspector::sync_inspector_context_from_editor_selection,
                     inspector::apply_inspector_name_changes,
                     inspector::refresh_inspector_panel,
                     inspector::sync_widget_property_section,

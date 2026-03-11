@@ -53,35 +53,21 @@ impl InspectorDriver for BoolInspectorDriver {
             .is_some_and(|checked| write_bool_field(field, checked))
     }
 
-    fn install_systems(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                apply_inspector_bool_driver_changes.before(refresh_inspector_panel),
-                sync_inspector_bool_controls.after(sync_widget_property_section),
-            )
-                .run_if(in_state(crate::editor::VistaEditorInitPhase::Finalize)),
-        );
+    fn install_runtime(&self, builder: &mut InspectorDriverRuntimeBuilder) {
+        builder.on_apply(apply_inspector_bool_driver_changes);
+        builder.on_sync(sync_inspector_bool_controls);
     }
 }
 
 fn apply_inspector_bool_driver_changes(
-    options: Res<VistaEditorViewOptions>,
-    panel_state: Res<InspectorPanelState>,
+    mut ctx: InspectorDriverApplyContext,
     mut changes: MessageReader<CheckboxChange>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
     controls: Query<&InspectorControlBinding>,
-    mut document: ResMut<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
 ) {
-    if options.is_preview_mode {
+    if !ctx.can_edit() {
         changes.clear();
         return;
     }
-    let Some(node_id) = panel_state.selected_node else {
-        return;
-    };
 
     for change in changes.read() {
         let Ok(control) = controls.get(change.entity) else {
@@ -90,86 +76,27 @@ fn apply_inspector_bool_driver_changes(
         if control.editor.driver_id != INSPECTOR_DRIVER_BOOL {
             continue;
         }
-        if matches!(control.target, InspectorBindingTarget::WidgetProp) {
-            let Some(mut value) = selected_node_widget_reflect(
-                &panel_state,
-                &document,
-                &widget_registry,
-                &inspector_registry,
-                &control_registry,
-                None,
-            ) else {
-                continue;
-            };
-            let Some(field) = read_reflect_path_mut(value.as_mut(), &control.field_path) else {
-                continue;
-            };
-            if !write_bool_field(field, change.checked) {
-                continue;
-            }
-            store_widget_prop_change(
-                node_id,
-                &control.field_path,
-                control.editor,
-                field,
-                &mut document,
-                &widget_registry,
-                &control_registry,
-                None,
-            );
-            continue;
-        }
-        let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
-            continue;
-        };
-        let style_reflect: &mut dyn PartialReflect = &mut style;
-        let Some(field) = read_reflect_path_mut(style_reflect, &control.field_path) else {
-            continue;
-        };
-        if !write_bool_field(field, change.checked) {
-            continue;
-        }
-        apply_style_change(node_id, style, &mut document, &widget_registry);
+        let _ = ctx.apply_to_binding(control, None, |field| write_bool_field(field, change.checked));
     }
 }
 
 fn sync_inspector_bool_controls(
-    panel_state: Res<InspectorPanelState>,
-    document: Res<blueprint::WidgetBlueprintDocument>,
-    widget_registry: Res<WidgetRegistry>,
-    inspector_registry: Res<InspectorEditorRegistry>,
-    control_registry: Res<InspectorControlRegistry>,
+    ctx: InspectorDriverSyncContext,
     mut checkbox_controls: Query<(&InspectorControlBinding, &mut Checkbox)>,
 ) {
-    if !panel_state.is_changed() && !document.is_changed() {
+    if !ctx.changed() {
         return;
     }
-
-    let Some(style) = selected_node_style(&panel_state, &document) else {
+    let Some(selection) = ctx.selection() else {
         for (_, mut checkbox) in checkbox_controls.iter_mut() {
             checkbox.checked = false;
             checkbox.disabled = true;
         }
         return;
     };
-    let widget_reflect = selected_node_widget_reflect(
-        &panel_state,
-        &document,
-        &widget_registry,
-        &inspector_registry,
-        &control_registry,
-        None,
-    );
 
     for (binding, mut checkbox) in checkbox_controls.iter_mut() {
-        let source: Option<&dyn PartialReflect> = match binding.target {
-            InspectorBindingTarget::Style => {
-                read_reflect_path(style as &dyn PartialReflect, &binding.field_path)
-            }
-            InspectorBindingTarget::WidgetProp => widget_reflect
-                .as_deref()
-                .and_then(|value| read_reflect_path(value, &binding.field_path)),
-        };
+        let source = selection.binding_source(binding);
         let Some(style_field) = source else {
             checkbox.disabled = true;
             continue;

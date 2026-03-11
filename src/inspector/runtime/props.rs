@@ -1,19 +1,19 @@
 use bevy::prelude::*;
 use bevy::reflect::PartialReflect;
 
-use crate::editor::blueprint;
 use crate::inspector::{
-    InspectorEditorRegistry, InspectorEntryDescriptor, InspectorFieldEditor, read_reflect_path,
+    BlueprintCommand, BlueprintNodeId, InspectorEditorRegistry, InspectorEntryDescriptor,
+    InspectorFieldEditor, WidgetBlueprintDocument, apply_blueprint_command, read_reflect_path,
     read_reflect_path_mut,
 };
 use crate::theme::Theme;
 use crate::widget::{WidgetRegistry, WidgetStyle};
 
-use super::{InspectorControlRegistry, InspectorPanelState};
+use super::{InspectorBindingTarget, InspectorControlRegistry, InspectorPanelState};
 
 pub(crate) fn selected_node_style<'a>(
     panel_state: &InspectorPanelState,
-    document: &'a blueprint::WidgetBlueprintDocument,
+    document: &'a WidgetBlueprintDocument,
 ) -> Option<&'a WidgetStyle> {
     let node_id = panel_state.selected_node?;
     let node = document.nodes.get(&node_id)?;
@@ -25,7 +25,7 @@ pub(crate) fn selected_node_style<'a>(
 
 pub(crate) fn selected_node_widget_reflect(
     panel_state: &InspectorPanelState,
-    document: &blueprint::WidgetBlueprintDocument,
+    document: &WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
     inspector_registry: &InspectorEditorRegistry,
     control_registry: &InspectorControlRegistry,
@@ -62,7 +62,7 @@ pub(crate) fn selected_node_widget_reflect(
 
 pub(crate) fn selected_node_widget_default_reflect(
     panel_state: &InspectorPanelState,
-    document: &blueprint::WidgetBlueprintDocument,
+    document: &WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
 ) -> Option<Box<dyn PartialReflect>> {
     let node_id = panel_state.selected_node?;
@@ -75,14 +75,14 @@ pub(crate) fn selected_node_widget_default_reflect(
 }
 
 fn apply_widget_prop_change(
-    node_id: blueprint::BlueprintNodeId,
+    node_id: BlueprintNodeId,
     field_path: &str,
     serialized: String,
-    document: &mut blueprint::WidgetBlueprintDocument,
+    document: &mut WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
 ) {
-    let _ = blueprint::apply_blueprint_command(
-        blueprint::BlueprintCommand::SetNodeProp {
+    let _ = apply_blueprint_command(
+        BlueprintCommand::SetNodeProp {
             node: node_id,
             key: field_path.to_owned(),
             value: serialized,
@@ -93,13 +93,13 @@ fn apply_widget_prop_change(
 }
 
 pub(crate) fn clear_widget_prop_change(
-    node_id: blueprint::BlueprintNodeId,
+    node_id: BlueprintNodeId,
     field_path: &str,
-    document: &mut blueprint::WidgetBlueprintDocument,
+    document: &mut WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
 ) {
-    let _ = blueprint::apply_blueprint_command(
-        blueprint::BlueprintCommand::RemoveNodeProp {
+    let _ = apply_blueprint_command(
+        BlueprintCommand::RemoveNodeProp {
             node: node_id,
             key: field_path.to_owned(),
         },
@@ -109,11 +109,11 @@ pub(crate) fn clear_widget_prop_change(
 }
 
 pub(crate) fn store_widget_prop_change(
-    node_id: blueprint::BlueprintNodeId,
+    node_id: BlueprintNodeId,
     field_path: &str,
     editor: InspectorFieldEditor,
     field: &dyn PartialReflect,
-    document: &mut blueprint::WidgetBlueprintDocument,
+    document: &mut WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
     control_registry: &InspectorControlRegistry,
     theme: Option<&Theme>,
@@ -165,17 +165,97 @@ where
 }
 
 pub(crate) fn apply_style_change(
-    node_id: blueprint::BlueprintNodeId,
+    node_id: BlueprintNodeId,
     style: WidgetStyle,
-    document: &mut blueprint::WidgetBlueprintDocument,
+    document: &mut WidgetBlueprintDocument,
     widget_registry: &WidgetRegistry,
 ) {
-    let _ = blueprint::apply_blueprint_command(
-        blueprint::BlueprintCommand::SetNodeStyle {
+    let _ = apply_blueprint_command(
+        BlueprintCommand::SetNodeStyle {
             node: node_id,
             style,
         },
         document,
         widget_registry,
     );
+}
+
+pub(crate) fn selected_binding_source<'a>(
+    style: &'a WidgetStyle,
+    widget_reflect: Option<&'a dyn PartialReflect>,
+    target: &InspectorBindingTarget,
+    field_path: &str,
+) -> Option<&'a dyn PartialReflect> {
+    match target {
+        InspectorBindingTarget::Style => read_reflect_path(style as &dyn PartialReflect, field_path),
+        InspectorBindingTarget::WidgetProp => {
+            widget_reflect.and_then(|value| read_reflect_path(value, field_path))
+        }
+    }
+}
+
+pub(crate) fn apply_selected_field_change<F>(
+    panel_state: &InspectorPanelState,
+    document: &mut WidgetBlueprintDocument,
+    widget_registry: &WidgetRegistry,
+    inspector_registry: &InspectorEditorRegistry,
+    control_registry: &InspectorControlRegistry,
+    target: &InspectorBindingTarget,
+    field_path: &str,
+    editor: InspectorFieldEditor,
+    theme: Option<&Theme>,
+    apply: F,
+) -> bool
+where
+    F: FnOnce(&mut dyn PartialReflect) -> bool,
+{
+    let Some(node_id) = panel_state.selected_node else {
+        return false;
+    };
+
+    match target {
+        InspectorBindingTarget::WidgetProp => {
+            let Some(mut value) = selected_node_widget_reflect(
+                panel_state,
+                document,
+                widget_registry,
+                inspector_registry,
+                control_registry,
+                theme,
+            ) else {
+                return false;
+            };
+            let Some(field) = read_reflect_path_mut(value.as_mut(), field_path) else {
+                return false;
+            };
+            if !apply(field) {
+                return false;
+            }
+            store_widget_prop_change(
+                node_id,
+                field_path,
+                editor,
+                field,
+                document,
+                widget_registry,
+                control_registry,
+                theme,
+            );
+            true
+        }
+        InspectorBindingTarget::Style => {
+            let Some(mut style) = document.nodes.get(&node_id).map(|node| node.style.clone()) else {
+                return false;
+            };
+            let style_reflect: &mut dyn PartialReflect = &mut style;
+            let Some(field) = read_reflect_path_mut(style_reflect, field_path) else {
+                return false;
+            };
+            if !apply(field) {
+                return false;
+            }
+            apply_style_change(node_id, style, document, widget_registry);
+            true
+        }
+    }
 }
