@@ -14,9 +14,25 @@ pub mod widget;
 
 pub mod prelude {
     pub use super::VistaUiPlugin;
-    pub use super::asset::*;
+    pub use super::asset::{
+        VISTA_UI_ASSET_EXTENSION, VISTA_UI_ASSET_VERSION, VistaAssetPlugin, VistaNodeId,
+        VistaUiAsset, VistaUiAssetError, VistaUiNodeAsset, VistaUiSpawnResult,
+    };
     pub use super::bevy_vista_macros::{ShowInInspector, Widget};
-    pub use super::editor_resources::*;
+    pub use super::editor_resources::{
+        EditingMode, VistaEditorActive, VistaEditorCanvasInfo, VistaEditorExpanded,
+        VistaEditorGridInfo, VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
+    };
+    pub use super::inspector::{
+        BlueprintCommand, BlueprintNodeId, InspectorDriverId, InspectorEditorRegistry,
+        InspectorFieldDescriptor, InspectorFieldEditor, WidgetBlueprintDocument,
+        WidgetBlueprintNode, apply_blueprint_command,
+    };
+    pub use super::inspector::runtime::{
+        InspectorBindingTarget, InspectorContext, InspectorDriver, InspectorDriverAppExt,
+        InspectorDriverApplyContext, InspectorDriverRuntimeBuilder, InspectorDriverSelection,
+        InspectorDriverSyncContext,
+    };
     pub use super::icons::{EditorIconsPlugin, Icons};
     pub use super::theme::{
         EditorTheme, Theme, ThemeBoundary, ThemeMode, ThemeScope, ViewportThemeState,
