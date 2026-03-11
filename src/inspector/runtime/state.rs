@@ -87,7 +87,7 @@ impl InspectorControlRegistry {
         driver.serialize(editor, field, theme)
     }
 
-    pub(super) fn apply_serialized_value(
+    pub(crate) fn apply_serialized_value(
         &self,
         editor: InspectorFieldEditor,
         field: &mut dyn PartialReflect,

@@ -23,11 +23,14 @@ pub(super) use crate::widget::{
     WidgetRegistry,
 };
 
-pub use driver::{InspectorDriver, InspectorDriverAppExt};
+pub use driver::{
+    InspectorDriver, InspectorDriverAppExt, InspectorDriverApplyContext,
+    InspectorDriverRuntimeBuilder, InspectorDriverSelection, InspectorDriverSyncContext,
+};
 pub use state::{InspectorBindingTarget, InspectorContext};
 
 pub(crate) use panel::init_inspector_panel;
-pub(crate) use state::{InspectorPanelState, install_inspector_drivers};
+pub(crate) use state::{InspectorControlRegistry, InspectorPanelState, install_inspector_drivers};
 pub(crate) use sync::{
     apply_inspector_name_changes, refresh_inspector_panel,
     sync_inspector_context_from_editor_selection, sync_inspector_field_markers,

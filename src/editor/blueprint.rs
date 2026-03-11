@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::inspector::InspectorEditorRegistry;
+use crate::inspector::runtime::InspectorControlRegistry;
 use crate::widget::{WidgetRegistry, spawn_blueprint_widget_content};
 
 use super::*;
@@ -14,6 +15,7 @@ pub(super) fn compile_blueprint_document(
     mut commands: Commands,
     widget_registry: Res<WidgetRegistry>,
     inspector_registry: Res<InspectorEditorRegistry>,
+    control_registry: Res<InspectorControlRegistry>,
     viewport_theme: Res<ViewportThemeState>,
     elements_container: Single<Entity, With<viewport::ElementsContainer>>,
     container_children: Query<&Children>,
@@ -43,6 +45,7 @@ pub(super) fn compile_blueprint_document(
             &mut runtime_map,
             &widget_registry,
             &inspector_registry,
+            &control_registry,
             viewport_theme.active_theme(),
             *elements_container,
             root_id,
@@ -95,6 +98,7 @@ fn compile_node_recursive(
     runtime_map: &mut BlueprintRuntimeMap,
     widget_registry: &WidgetRegistry,
     inspector_registry: &InspectorEditorRegistry,
+    control_registry: &InspectorControlRegistry,
     theme: Option<&Theme>,
     parent: Entity,
     node_id: BlueprintNodeId,
@@ -105,6 +109,7 @@ fn compile_node_recursive(
     let Some(spawn) = spawn_blueprint_widget_content(
         widget_registry,
         inspector_registry,
+        Some(control_registry),
         commands,
         &node.widget_path,
         &node.style,
@@ -128,6 +133,7 @@ fn compile_node_recursive(
             runtime_map,
             widget_registry,
             inspector_registry,
+            control_registry,
             theme,
             child_parent,
             child,

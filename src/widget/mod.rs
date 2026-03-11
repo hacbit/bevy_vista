@@ -11,14 +11,31 @@ use crate as bevy_vista;
 use crate::inspector::{
     InspectorEditorRegistry, InspectorEntryDescriptor, apply_serialized_editor_value,
 };
+use crate::inspector::runtime::InspectorControlRegistry;
 use crate::prelude::*;
 
 pub mod common;
-pub use common::*;
+pub use common::{
+    ButtonBuilder, ButtonWidget, ButtonWidgetPlugin, ImageBuilder, ImageWidget, ImageWidgetPlugin,
+    LabelBuilder, LabelWidget, LabelWidgetPlugin, NodeBuilder, NodeWidget,
+};
 pub mod input;
-pub use input::*;
+pub use input::{
+    Checkbox, CheckboxBuilder, CheckboxChange, CheckboxPlugin, ColorField, ColorFieldBuilder,
+    ColorFieldChange, ColorFieldMode, ColorFieldPlugin, Dropdown, DropdownBuilder, DropdownChange,
+    DropdownPlugin, Number, NumberField, NumberFieldBuilder, NumberFieldChange, NumberFieldPlugin,
+    NumberKind, NumericFieldsPlugin, TextField, TextFieldBuilder, TextFieldLayoutMode,
+    TextFieldPlugin, TextInputChange, TextInputFormatter, TextInputSubmit, TextInputType,
+    TextInputValidator,
+};
 pub mod layout;
-pub use layout::*;
+pub use layout::{
+    Divider, DividerAxis, DividerBuilder, Foldout, FoldoutBuilder, FoldoutPlugin, ListView,
+    ListViewBuilder, ListViewItem, ListViewPlugin, ScrollView, ScrollViewBuilder,
+    ScrollViewPlugin, ScrollbarVisibility, SplitView, SplitViewAxis, SplitViewBuilder,
+    SplitViewPlugin, TreeNodeBuilder, TreeNodeHeader, TreeNodeItemId, TreeNodeState, TreeView,
+    TreeViewBuilder, TreeViewPlugin,
+};
 
 pub struct DefaultUiWidgetsPlugins;
 
@@ -228,6 +245,7 @@ pub struct WidgetRegistration {
             Entity,
             &HashMap<String, String>,
             &InspectorEditorRegistry,
+            Option<&InspectorControlRegistry>,
             Option<&crate::theme::Theme>,
         ),
     >,
@@ -325,16 +343,17 @@ impl WidgetRegistration {
             .unwrap_or_default()
     }
 
-    pub fn apply_props(
+    pub(crate) fn apply_props(
         &self,
         commands: &mut Commands,
         entity: Entity,
         props: &HashMap<String, String>,
         registry: &InspectorEditorRegistry,
+        control_registry: Option<&InspectorControlRegistry>,
         theme: Option<&crate::theme::Theme>,
     ) {
         if let Some(apply) = self.apply_props_fn {
-            apply(commands, entity, props, registry, theme);
+            apply(commands, entity, props, registry, control_registry, theme);
         }
     }
 
@@ -575,9 +594,10 @@ impl WidgetStyle {
     }
 }
 
-pub fn spawn_blueprint_widget_content(
+pub(crate) fn spawn_blueprint_widget_content(
     registry: &WidgetRegistry,
     inspector_registry: &InspectorEditorRegistry,
+    control_registry: Option<&InspectorControlRegistry>,
     commands: &mut Commands,
     widget_path: &str,
     style: &WidgetStyle,
@@ -586,7 +606,14 @@ pub fn spawn_blueprint_widget_content(
 ) -> Option<WidgetSpawnResult> {
     let registration = registry.get_widget_by_path(widget_path)?;
     let spawn = registration.spawn_default(commands, theme);
-    registration.apply_props(commands, spawn.root, props, inspector_registry, theme);
+    registration.apply_props(
+        commands,
+        spawn.root,
+        props,
+        inspector_registry,
+        control_registry,
+        theme,
+    );
     if style != &WidgetStyle::default() {
         style.apply_to_entity(commands, spawn.root);
     }
@@ -612,6 +639,7 @@ fn apply_widget_props<T>(
     entity: Entity,
     props: &HashMap<String, String>,
     registry: &InspectorEditorRegistry,
+    control_registry: Option<&InspectorControlRegistry>,
     theme: Option<&crate::theme::Theme>,
 ) where
     T: Component + Reflect + Default + Clone + 'static,
@@ -630,7 +658,17 @@ fn apply_widget_props<T>(
         else {
             continue;
         };
-        let _ = apply_serialized_editor_value(field.editor, target, raw, field.numeric_min, theme);
+        let _ = control_registry
+            .is_some_and(|control_registry| {
+                control_registry.apply_serialized_value(
+                    field.editor,
+                    target,
+                    raw,
+                    field.numeric_min,
+                    theme,
+                )
+            })
+            || apply_serialized_editor_value(field.editor, target, raw, field.numeric_min, theme);
     }
     commands.entity(entity).insert(value);
 }

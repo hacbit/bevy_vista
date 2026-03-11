@@ -442,6 +442,7 @@ fn spawn_asset_node_recursive(
     let Some(spawn) = spawn_blueprint_widget_content(
         widget_registry,
         inspector_registry,
+        None,
         commands,
         &node.widget_path,
         &node.style,
