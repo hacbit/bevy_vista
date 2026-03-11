@@ -11,10 +11,6 @@ mod toolbar;
 mod viewport;
 mod widget_lib;
 
-pub use crate::inspector::runtime::{
-    InspectorBindingTarget, InspectorDriver, InspectorDriverAppExt,
-};
-
 use crate::{
     grid::GridUiMaterial,
     inspector::runtime as inspector,

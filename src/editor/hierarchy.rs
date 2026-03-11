@@ -2,9 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use bevy::prelude::*;
 
-use crate::widget::{
-    TreeNodeBuilder, TreeNodeHeader, TreeNodeItemId, TreeViewBuilder, spawn_tree_node,
-};
+use crate::widget::{TreeNodeBuilder, TreeNodeHeader, TreeNodeItemId, TreeViewBuilder};
+use crate::widget::layout::spawn_tree_node;
 
 use super::*;
 
