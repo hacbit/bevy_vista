@@ -7,7 +7,6 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::utils::TypeIdMap;
 
-use crate as bevy_vista;
 use crate::bevy_vista_macros::{ShowInInspector, Widget};
 use crate::core::icons::Icons;
 use crate::core::inspector::runtime::InspectorControlRegistry;

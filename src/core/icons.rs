@@ -13,7 +13,7 @@ use bevy_vista_macros::generate_icons;
 /// struct MyPlugin;
 ///
 /// impl Plugin for MyPlugin {
-///     fn build(app: &mut App) {
+///     fn build(&self, app: &mut App) {
 ///         app.add_systems(Startup, test_load_icon);
 ///     }
 /// }

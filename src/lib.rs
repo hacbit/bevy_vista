@@ -23,6 +23,8 @@
 //! directory for end-to-end usage.
 #![deny(unsafe_code)]
 
+extern crate self as bevy_vista;
+
 use bevy::prelude::*;
 pub use bevy_vista_macros;
 

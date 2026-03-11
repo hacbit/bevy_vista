@@ -105,7 +105,7 @@ fn impl_widget_trait(input: &DeriveInput, category: &str, name: &str) -> proc_ma
     let generics = &input.generics;
 
     quote! {
-        impl #generics bevy_vista::widget::Widget for #struct_ident #generics {
+        impl #generics ::bevy_vista::widget::Widget for #struct_ident #generics {
             fn category() -> &'static str {
                 #category
             }
@@ -130,17 +130,17 @@ fn impl_get_widget_registration_trait(
     let generics = &input.generics;
     let base_registration = if supports_inspector {
         quote! {
-            bevy_vista::widget::WidgetRegistration::of_with_inspector::<Self, #builder_path>(#category, #name)
+            ::bevy_vista::widget::WidgetRegistration::of_with_inspector::<Self, #builder_path>(#category, #name)
         }
     } else {
         quote! {
-            bevy_vista::widget::WidgetRegistration::of::<Self, #builder_path>(#category, #name)
+            ::bevy_vista::widget::WidgetRegistration::of::<Self, #builder_path>(#category, #name)
         }
     };
 
     let child_rule = children
         .map(parse_child_rule_tokens)
-        .unwrap_or_else(|| quote! { bevy_vista::widget::WidgetChildRule::Any });
+        .unwrap_or_else(|| quote! { ::bevy_vista::widget::WidgetChildRule::Any });
 
     let slots_tokens = slots
         .map(parse_slots_tokens)
@@ -152,8 +152,8 @@ fn impl_get_widget_registration_trait(
             .child_slots(#slots_tokens)
     };
     quote! {
-        impl #generics bevy_vista::widget::GetWidgetRegistration for #ty #generics {
-            fn get_widget_registration() -> bevy_vista::widget::WidgetRegistration {
+        impl #generics ::bevy_vista::widget::GetWidgetRegistration for #ty #generics {
+            fn get_widget_registration() -> ::bevy_vista::widget::WidgetRegistration {
                 #registration
             }
         }
@@ -163,7 +163,7 @@ fn impl_get_widget_registration_trait(
 fn parse_child_rule_tokens(raw: &str) -> proc_macro2::TokenStream {
     let value = raw.trim().to_ascii_lowercase();
     if value == "any" {
-        return quote! { bevy_vista::widget::WidgetChildRule::Any };
+        return quote! { ::bevy_vista::widget::WidgetChildRule::Any };
     }
     if let Some(inner) = value
         .strip_prefix("exact(")
@@ -173,14 +173,14 @@ fn parse_child_rule_tokens(raw: &str) -> proc_macro2::TokenStream {
             .trim()
             .parse::<usize>()
             .unwrap_or_else(|_| panic!("invalid children metadata, expected exact(<usize>)"));
-        return quote! { bevy_vista::widget::WidgetChildRule::Exact(#n) };
+        return quote! { ::bevy_vista::widget::WidgetChildRule::Exact(#n) };
     }
     if let Some(inner) = value.strip_prefix("max(").and_then(|s| s.strip_suffix(')')) {
         let n = inner
             .trim()
             .parse::<usize>()
             .unwrap_or_else(|_| panic!("invalid children metadata, expected max(<usize>)"));
-        return quote! { bevy_vista::widget::WidgetChildRule::Range { max: Some(#n) } };
+        return quote! { ::bevy_vista::widget::WidgetChildRule::Range { max: Some(#n) } };
     }
 
     panic!("invalid children metadata, use one of: any | exact(<usize>) | max(<usize>)");
@@ -201,9 +201,9 @@ fn parse_slots_tokens(raw: &str) -> proc_macro2::TokenStream {
 
 fn auto_widget_registration(ty: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        bevy_vista::widget::__macro_exports::inventory::submit! {
-            bevy_vista::widget::__macro_exports::AutomaticWidgetRegistrations(
-                <#ty as bevy_vista::widget::__macro_exports::RegisterForWidget>::__auto_register
+        ::bevy_vista::widget::__macro_exports::inventory::submit! {
+            ::bevy_vista::widget::__macro_exports::AutomaticWidgetRegistrations(
+                <#ty as ::bevy_vista::widget::__macro_exports::RegisterForWidget>::__auto_register
             )
         }
     }

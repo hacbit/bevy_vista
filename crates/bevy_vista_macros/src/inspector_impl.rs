@@ -23,17 +23,17 @@ pub fn show_in_inspector_derive_impl(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     quote! {
-        impl bevy_vista::inspector::ShowInInspector for #ty {
-            fn inspector_fields() -> ::std::vec::Vec<bevy_vista::inspector::InspectorFieldMetadata> {
+        impl ::bevy_vista::inspector::ShowInInspector for #ty {
+            fn inspector_fields() -> ::std::vec::Vec<::bevy_vista::inspector::InspectorFieldMetadata> {
                 vec![
                     #(#metadata_entries),*
                 ]
             }
         }
 
-        bevy_vista::inspector::__macro_exports::inventory::submit! {
-            bevy_vista::inspector::__macro_exports::AutomaticInspectorMetadata(
-                <#ty as bevy_vista::inspector::__macro_exports::RegisterForInspectorMetadata>::__auto_register
+        ::bevy_vista::inspector::__macro_exports::inventory::submit! {
+            ::bevy_vista::inspector::__macro_exports::AutomaticInspectorMetadata(
+                <#ty as ::bevy_vista::inspector::__macro_exports::RegisterForInspectorMetadata>::__auto_register
             )
         }
     }
@@ -54,7 +54,7 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     }
 
     let field_name = ident.to_string();
-    let mut options = quote! { bevy_vista::inspector::InspectorFieldOptions::default() };
+    let mut options = quote! { ::bevy_vista::inspector::InspectorFieldOptions::default() };
 
     if let Some(label) = property.label {
         options = quote! { #options.label(#label) };
@@ -70,7 +70,7 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
         let default_open = property.header_default_open.unwrap_or(true);
         options = quote! {
             #options.header_with_options(
-                bevy_vista::inspector::InspectorHeaderOptions::new(#title)
+                ::bevy_vista::inspector::InspectorHeaderOptions::new(#title)
                     .default_open(#default_open)
             )
         };
@@ -80,7 +80,7 @@ fn field_metadata_tokens(field: &Field) -> Option<proc_macro2::TokenStream> {
     }
 
     Some(quote! {
-        bevy_vista::inspector::InspectorFieldMetadata {
+        ::bevy_vista::inspector::InspectorFieldMetadata {
             field_name: #field_name,
             options: #options,
         }
