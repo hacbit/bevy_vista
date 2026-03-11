@@ -175,6 +175,20 @@ impl WidgetRegistry {
         self.registrations.get(type_id)
     }
 
+    pub fn get_widget<T>(&self) -> Option<&WidgetRegistration>
+    where
+        T: Widget + 'static,
+    {
+        self.registrations.get(&TypeId::of::<T>())
+    }
+
+    pub fn widget_path<T>(&self) -> Option<String>
+    where
+        T: Widget + 'static,
+    {
+        self.get_widget::<T>().map(WidgetRegistration::full_path)
+    }
+
     pub fn spawn_default_widget(
         &self,
         path: &str,

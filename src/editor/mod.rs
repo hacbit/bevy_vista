@@ -22,15 +22,12 @@ use crate::{
 pub(crate) fn init_editor_ui(app: &mut App) {
     use VistaEditorInitPhase::*;
 
-    inspector::install_inspector_drivers(app);
-
     app.add_plugins(UiMaterialPlugin::<GridUiMaterial>::default())
         .init_resource::<widget_lib::WidgetLibDragState>()
         .init_resource::<blueprint::WidgetBlueprintDocument>()
         .init_resource::<blueprint::BlueprintRuntimeMap>()
         .init_resource::<toolbar::EditorDocumentPath>()
         .init_resource::<toolbar::EditorDocumentToolbarState>()
-        .init_resource::<crate::inspector::InspectorEditorRegistry>()
         .init_resource::<inspector::InspectorContext>()
         .init_resource::<hierarchy::HierarchyState>()
         .init_resource::<hierarchy::HierarchyDragState>()

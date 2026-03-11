@@ -11,9 +11,9 @@ pub mod icons;
 pub mod inspector;
 pub mod theme;
 pub mod widget;
+pub mod widget_doc;
 
 pub mod prelude {
-    pub use super::VistaUiPlugin;
     pub use super::asset::{
         VISTA_UI_ASSET_EXTENSION, VISTA_UI_ASSET_VERSION, VistaAssetPlugin, VistaNodeId,
         VistaUiAsset, VistaUiAssetError, VistaUiNodeAsset, VistaUiSpawnResult,
@@ -37,12 +37,21 @@ pub mod prelude {
         EditorTheme, Theme, ThemeBoundary, ThemeMode, ThemeScope, ViewportThemeState,
     };
     pub use super::widget::*;
+    pub use super::widget_doc::{
+        WidgetDocError, WidgetDocId, WidgetDocInstanceId, WidgetDocLiveMut, WidgetDocLiveRef,
+        WidgetDocUtility,
+    };
+    pub use super::{VistaUiPlugin, VistaUiRuntimePlugin};
 }
 
 /// # Vista Ui Editor
 ///
 ///
 pub struct VistaUiPlugin;
+pub struct VistaUiRuntimePlugin;
+
+#[derive(Resource, Default)]
+struct RuntimeUiCoreInitialized;
 
 macro_rules! ensure_plugins_added {
     ($app:expr, $( $plugin:expr ),* $(,)?) => {
@@ -67,10 +76,18 @@ impl Plugin for VistaUiPlugin {
             widget::VistaWidgetsPlugin,
             asset::VistaAssetPlugin
         );
+        init_runtime_ui(app);
         grid::load_grid_shader(app);
         editor_resources::init_vista_editor_resources(app);
         // canvas::init_canvas(app);
         editor::init_editor_ui(app);
+    }
+}
+
+impl Plugin for VistaUiRuntimePlugin {
+    fn build(&self, app: &mut App) {
+        ensure_plugins_added!(app, widget::VistaWidgetsPlugin, asset::VistaAssetPlugin);
+        init_runtime_ui(app);
     }
 }
 
@@ -79,4 +96,15 @@ fn ensure_plugin_added<T: Plugin>(app: &mut App, plugin: T) {
     if !app.is_plugin_added::<T>() {
         app.add_plugins(plugin);
     }
+}
+
+fn init_runtime_ui(app: &mut App) {
+    if app.world().contains_resource::<RuntimeUiCoreInitialized>() {
+        return;
+    }
+
+    app.init_resource::<inspector::InspectorEditorRegistry>()
+        .init_resource::<widget_doc::WidgetDocStore>()
+        .insert_resource(RuntimeUiCoreInitialized);
+    inspector::runtime::install_inspector_drivers(app);
 }
