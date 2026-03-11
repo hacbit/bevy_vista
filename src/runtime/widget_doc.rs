@@ -1,3 +1,12 @@
+//! Runtime utilities for loading, editing, spawning, and querying Vista UI
+//! documents.
+//!
+//! The central entry point is [`WidgetDocUtility`], which lets you:
+//! - load `.vista.ron` files into editable documents
+//! - mutate widget definitions before spawning
+//! - spawn document instances into the world
+//! - query and mutate live widget components after spawning
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -19,12 +28,15 @@ use crate::core::widget::{
     Widget, WidgetRegistry, WidgetSpawnResult, WidgetStyle, spawn_blueprint_widget_content,
 };
 
+/// Opaque id of a loaded widget document.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct WidgetDocId(u64);
 
+/// Opaque id of a spawned widget document instance.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct WidgetDocInstanceId(u64);
 
+/// Errors produced by [`WidgetDocUtility`].
 #[derive(Debug)]
 pub enum WidgetDocError {
     Io(String),
@@ -160,6 +172,29 @@ impl WidgetDocStore {
     }
 }
 
+/// High-level runtime API for document-driven UI workflows.
+///
+/// This system param keeps the editable document as the source of truth. A
+/// common flow is:
+/// 1. `load_path`
+/// 2. mutate the document with `with_widget_mut` / `with_style_mut`
+/// 3. `spawn`
+/// 4. optionally mutate live components with `with_live_widget_mut`
+///
+/// # Example
+/// ```no_run
+/// use bevy::prelude::*;
+/// use bevy_vista::runtime::prelude::*;
+///
+/// fn setup(
+///     mut commands: Commands,
+///     mut docs: WidgetDocUtility,
+/// ) {
+///     let root = commands.spawn_empty().id();
+///     let doc = docs.load_path("assets/ui/runtime_widget_doc_demo.vista.ron").unwrap();
+///     let _instance = docs.spawn(doc, root).unwrap();
+/// }
+/// ```
 #[derive(SystemParam)]
 pub struct WidgetDocUtility<'w, 's> {
     commands: Commands<'w, 's>,
@@ -170,6 +205,7 @@ pub struct WidgetDocUtility<'w, 's> {
     theme: Option<Res<'w, Theme>>,
 }
 
+/// Read-only access to live widget components for a spawned document instance.
 #[derive(SystemParam)]
 pub struct WidgetDocLiveRef<'w, 's, T>
 where
@@ -178,6 +214,7 @@ where
     widgets: Query<'w, 's, &'static T>,
 }
 
+/// Mutable access to live widget components for a spawned document instance.
 #[derive(SystemParam)]
 pub struct WidgetDocLiveMut<'w, 's, T>
 where
@@ -187,6 +224,7 @@ where
 }
 
 impl<'w, 's> WidgetDocUtility<'w, 's> {
+    /// Loads a `.vista.ron` file into the internal document store.
     pub fn load_path(&mut self, path: impl AsRef<Path>) -> Result<WidgetDocId, WidgetDocError> {
         let path = path.as_ref().to_path_buf();
         let input =
@@ -196,6 +234,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         Ok(self.store.insert_document(document, Some(path)))
     }
 
+    /// Loads a document from disk and immediately spawns it under `parent`.
     pub fn load_and_spawn_path(
         &mut self,
         path: impl AsRef<Path>,
@@ -205,10 +244,12 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         self.spawn(doc_id, parent)
     }
 
+    /// Inserts an existing blueprint document into the runtime store.
     pub fn insert_document(&mut self, document: WidgetBlueprintDocument) -> WidgetDocId {
         self.store.insert_document(document, None)
     }
 
+    /// Returns the persisted source path for a loaded document, if any.
     pub fn source_path(&self, doc_id: WidgetDocId) -> Option<&Path> {
         self.store
             .documents
@@ -216,6 +257,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
             .and_then(|record| record.source_path.as_deref())
     }
 
+    /// Returns an immutable reference to a loaded document.
     pub fn document(&self, doc_id: WidgetDocId) -> Option<&WidgetBlueprintDocument> {
         self.store
             .documents
@@ -223,6 +265,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
             .map(|record| &record.document)
     }
 
+    /// Returns a mutable reference to a loaded document.
     pub fn document_mut(&mut self, doc_id: WidgetDocId) -> Option<&mut WidgetBlueprintDocument> {
         self.store
             .documents
@@ -246,6 +289,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         )?)
     }
 
+    /// Finds the first node with the given `name`.
     pub fn query_first_by_name(&self, doc_id: WidgetDocId, name: &str) -> Option<BlueprintNodeId> {
         self.query_all_by_name(doc_id, name).into_iter().next()
     }
@@ -291,6 +335,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
             .map(|node| &node.style)
     }
 
+    /// Mutates the inline [`WidgetStyle`] of a node.
     pub fn with_style_mut(
         &mut self,
         doc_id: WidgetDocId,
@@ -308,6 +353,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         Ok(())
     }
 
+    /// Reads a typed widget definition from the document layer.
     pub fn read_widget<T>(
         &self,
         doc_id: WidgetDocId,
@@ -326,6 +372,9 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
             })
     }
 
+    /// Mutates a typed widget definition in the document layer.
+    ///
+    /// Changes made here affect future spawns or a later [`Self::flush`] call.
     pub fn with_widget_mut<T>(
         &mut self,
         doc_id: WidgetDocId,
@@ -347,6 +396,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         self.store_widget_props(doc_id, node_id, current, default, &entries)
     }
 
+    /// Finds a widget by `name`, reads it as `T`, and lets you mutate it.
     pub fn with_named_widget_mut<T>(
         &mut self,
         doc_id: WidgetDocId,
@@ -372,6 +422,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         Ok(node_id)
     }
 
+    /// Spawns a loaded document under `parent`.
     pub fn spawn(
         &mut self,
         doc_id: WidgetDocId,
@@ -412,6 +463,10 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         Ok(instance_id)
     }
 
+    /// Re-applies a document instance after document-side mutations.
+    ///
+    /// This despawns the current live roots for the instance and rebuilds them
+    /// from the stored document.
     pub fn flush(&mut self, instance_id: WidgetDocInstanceId) -> Result<(), WidgetDocError> {
         let Some((doc_id, parent, theme, roots)) =
             self.store.instances.get_mut(&instance_id).map(|instance| {
@@ -503,6 +558,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         Ok(self.entity(instance_id, node_id))
     }
 
+    /// Reads a typed live widget component from an existing instance.
     pub fn read_live_widget<T>(
         &self,
         instance_id: WidgetDocInstanceId,
@@ -550,6 +606,8 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         self.read_live_widget(instance_id, node_id, widgets)
     }
 
+    /// Mutates a typed live widget component without touching the stored
+    /// document.
     pub fn with_live_widget_mut<T>(
         &self,
         instance_id: WidgetDocInstanceId,
@@ -578,6 +636,7 @@ impl<'w, 's> WidgetDocUtility<'w, 's> {
         Ok(())
     }
 
+    /// Finds a live widget by `name` and mutates its component directly.
     pub fn with_named_live_widget_mut<T>(
         &self,
         instance_id: WidgetDocInstanceId,

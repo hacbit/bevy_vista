@@ -1,9 +1,25 @@
+//! Shared Vista UI foundation.
+//!
+//! This module contains the reusable building blocks that are not specific to
+//! the runtime document manager or the editor overlay:
+//! - asset/document representations
+//! - widget registrations and built-in widgets
+//! - theme types
+//! - inspector metadata and built-in drivers
+//! - editor icon definitions used across the crate
+//!
+//! Most users will interact with this layer through [`prelude`] or
+//! [`VistaUiCorePlugin`].
 pub mod asset;
 pub mod icons;
 pub mod inspector;
 pub mod theme;
 pub mod widget;
 
+/// Convenience imports for the shared Vista UI foundation.
+///
+/// This prelude focuses on data models and widget/theme/inspector definitions
+/// that are usable without the editor overlay or runtime document utilities.
 pub mod prelude {
     pub use super::VistaUiCorePlugin;
     pub use super::asset::{
@@ -37,6 +53,11 @@ pub mod prelude {
 use crate::ensure_plugin_added;
 use bevy::prelude::*;
 
+/// Shared Vista UI foundation.
+///
+/// This plugin installs the common building blocks used by both runtime and
+/// editor layers, including widget registrations, asset types, built-in
+/// inspector drivers, and default theme resources.
 pub struct VistaUiCorePlugin;
 
 impl Plugin for VistaUiCorePlugin {

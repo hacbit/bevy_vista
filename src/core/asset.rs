@@ -22,6 +22,11 @@ use crate::core::widget::{
 pub const VISTA_UI_ASSET_VERSION: u32 = 1;
 pub const VISTA_UI_ASSET_EXTENSION: &str = "vista.ron";
 
+/// Registers the `VistaUiAsset` type with Bevy's asset system.
+///
+/// Note that this only registers the asset type itself. The crate does not yet
+/// provide a Bevy `AssetLoader` for `.vista.ron`, so loading from disk is still
+/// typically done through [`VistaUiAsset::from_ron_str`].
 pub struct VistaAssetPlugin;
 
 impl Plugin for VistaAssetPlugin {
@@ -32,6 +37,19 @@ impl Plugin for VistaAssetPlugin {
 
 pub type VistaNodeId = BlueprintNodeId;
 
+/// Serializable UI document asset.
+///
+/// `VistaUiAsset` is the portable representation used for `.vista.ron` files.
+/// It can be converted into a [`WidgetBlueprintDocument`] for editing or spawned
+/// directly into the world.
+///
+/// # Example
+/// ```no_run
+/// use bevy_vista::core::asset::VistaUiAsset;
+///
+/// let asset = VistaUiAsset::from_ron_str("(version:1,roots:[],nodes:[])").unwrap();
+/// let _document = asset.to_blueprint_document().unwrap();
+/// ```
 #[derive(Asset, TypePath, Clone, Debug)]
 pub struct VistaUiAsset {
     pub version: u32,
@@ -49,6 +67,7 @@ impl Default for VistaUiAsset {
     }
 }
 
+/// One serialized node inside a [`VistaUiAsset`].
 #[derive(Clone, Debug)]
 pub struct VistaUiNodeAsset {
     pub id: VistaNodeId,
@@ -94,6 +113,7 @@ impl Default for SerializableVistaUiStyle {
     }
 }
 
+/// Errors produced while reading, validating, or writing [`VistaUiAsset`].
 #[derive(Clone, Debug)]
 pub enum VistaUiAssetError {
     UnsupportedVersion(u32),
@@ -113,6 +133,7 @@ pub enum VistaUiAssetError {
     RonEncode(String),
 }
 
+/// Result of spawning an asset directly into the world.
 #[derive(Default)]
 pub struct VistaUiSpawnResult {
     pub roots: Vec<Entity>,
@@ -120,12 +141,14 @@ pub struct VistaUiSpawnResult {
 }
 
 impl VistaUiAsset {
+    /// Serializes the asset into a pretty RON string.
     pub fn to_ron_string_pretty(&self) -> Result<String, VistaUiAssetError> {
         let serializable = SerializableVistaUiAsset::try_from(self)?;
         ron::ser::to_string_pretty(&serializable, PrettyConfig::default())
             .map_err(|error| VistaUiAssetError::RonEncode(error.to_string()))
     }
 
+    /// Serializes the asset into a compact RON string.
     pub fn to_ron_string(&self) -> Result<String, VistaUiAssetError> {
         let serializable = SerializableVistaUiAsset::try_from(self)?;
         ron::ser::to_string(&serializable)
@@ -143,16 +166,30 @@ impl VistaUiAsset {
             .map_err(|error| VistaUiAssetError::RonEncode(error.to_string()))
     }
 
+    /// Parses a `.vista.ron` string into an asset value.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use bevy_vista::core::asset::VistaUiAsset;
+    ///
+    /// let input = "(version:1,roots:[],nodes:[])";
+    /// let _asset = VistaUiAsset::from_ron_str(input).unwrap();
+    /// ```
     pub fn from_ron_str(input: &str) -> Result<Self, VistaUiAssetError> {
         let serializable: SerializableVistaUiAsset = ron::from_str(input)
             .map_err(|error| VistaUiAssetError::RonDecode(error.to_string()))?;
         serializable.try_into()
     }
 
+    /// Converts the asset into an editable blueprint document.
     pub fn to_blueprint_document(&self) -> Result<WidgetBlueprintDocument, VistaUiAssetError> {
         self.try_into()
     }
 
+    /// Spawns the asset into the world under `parent`.
+    ///
+    /// This is the low-level direct spawn path. For runtime document workflows,
+    /// prefer [`crate::runtime::widget_doc::WidgetDocUtility`].
     pub fn spawn_into(
         &self,
         commands: &mut Commands,

@@ -1,3 +1,14 @@
+//! Vista UI editor overlay.
+//!
+//! This module contains the editor-specific UI and interactions built on top of
+//! [`crate::core`], including:
+//! - viewport and preview tooling
+//! - hierarchy panel
+//! - inspector panel
+//! - toolbar and document actions
+//! - editor-only resources and mode state
+//!
+//! The main entry point is [`VistaUiEditorPlugin`].
 pub mod grid;
 pub mod resources;
 
@@ -30,6 +41,10 @@ use resources::{
     VistaEditorMode, VistaEditorSelection, VistaEditorViewOptions,
 };
 
+/// Convenience imports for editor usage.
+///
+/// This prelude re-exports [`crate::core::prelude`] plus editor-only resources
+/// like [`VistaEditorSelection`] and [`VistaEditorMode`].
 pub mod prelude {
     pub use super::VistaUiEditorPlugin;
     pub use super::resources::{
@@ -39,6 +54,10 @@ pub mod prelude {
     pub use crate::core::prelude::*;
 }
 
+/// Vista UI editor overlay.
+///
+/// This plugin builds on [`crate::core::VistaUiCorePlugin`] and installs the
+/// editor panels, viewport tools, hierarchy, and inspector UI.
 pub struct VistaUiEditorPlugin;
 
 impl Plugin for VistaUiEditorPlugin {
