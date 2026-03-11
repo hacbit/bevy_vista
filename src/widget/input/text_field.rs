@@ -899,29 +899,29 @@ fn text_field_sync_visuals(
     for (field_entity, field, children) in fields.iter() {
         let (surface, outline, on_surface, on_surface_muted, primary, disabled_bg) =
             match resolve_theme_or_global(
-            field_entity,
-            &parents,
-            &scopes,
-            &boundaries,
-            global_theme.as_deref(),
-        ) {
-            Some(theme) => (
-                theme.palette.surface,
-                theme.palette.outline,
-                theme.palette.on_surface,
-                theme.palette.on_surface_muted,
-                theme.palette.primary,
-                theme.palette.disabled_container,
-            ),
-            None => (
-                Color::srgb(0.12, 0.12, 0.12),
-                Color::srgb(0.3, 0.3, 0.3),
-                Color::srgb(0.9, 0.9, 0.9),
-                Color::srgb(0.55, 0.55, 0.55),
-                Color::srgb(0.2, 0.6, 0.95),
-                Color::srgb(0.09, 0.09, 0.09),
-            ),
-        };
+                field_entity,
+                &parents,
+                &scopes,
+                &boundaries,
+                global_theme.as_deref(),
+            ) {
+                Some(theme) => (
+                    theme.palette.surface,
+                    theme.palette.outline,
+                    theme.palette.on_surface,
+                    theme.palette.on_surface_muted,
+                    theme.palette.primary,
+                    theme.palette.disabled_container,
+                ),
+                None => (
+                    Color::srgb(0.12, 0.12, 0.12),
+                    Color::srgb(0.3, 0.3, 0.3),
+                    Color::srgb(0.9, 0.9, 0.9),
+                    Color::srgb(0.55, 0.55, 0.55),
+                    Color::srgb(0.2, 0.6, 0.95),
+                    Color::srgb(0.09, 0.09, 0.09),
+                ),
+            };
 
         if let Ok((mut background, mut border)) = overlays.p0().get_mut(field_entity) {
             background.0 = if field.disabled { disabled_bg } else { surface };
