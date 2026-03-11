@@ -36,7 +36,7 @@ proc-macro2 = "1.0"
 
 [package]
 name = "bevy_vista"
-version = "0.17.0"
+version = "0.17.1"
 edition = "2024"
 description = "A visual UI editor plugin for Bevy with inspector-driven editing and .vista.ron serialization."
 keywords = ["bevy", "editor", "ui"]
@@ -70,7 +70,7 @@ bevy_egui.workspace = true
 bevy-inspector-egui.workspace = true
 
 [dependencies.bevy_vista_macros]
-version = "0.17.0"
+version = "0.17.1"
 path = "crates/bevy_vista_macros"
 
 [[example]]
